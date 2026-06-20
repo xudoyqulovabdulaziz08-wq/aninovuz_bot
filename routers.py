@@ -4,7 +4,9 @@ from handlers import(
     start,
     search,
     qollanma,
-    reklama
+    reklama,
+    buy_vip,
+    help
 )
 
 
@@ -21,6 +23,8 @@ main_router.include_routers(
     start.router,
     qollanma.router,
     reklama.router,
+    buy_vip.router,
+    help.router,
 
 
     search.router
