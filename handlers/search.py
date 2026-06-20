@@ -49,3 +49,110 @@ async def search_menu(callback: CallbackQuery):
 
 
 
+@router.callback_query(lambda c: c.data == "search_by_name")
+async def search_by_name(callback: CallbackQuery):
+    await callback.answer()
+    
+    # O'sha asosiy rasmingiz ID si (barcha qidiruvlarda bir xil tursa interfeys silliq chiqadi)
+    search_image_file_id = "AgACAgIAAxkBAAI8Vmo2h33mXWFJrVt2WytylhrKnSRKAAJHGGsbZ6WxSVOJWvc1e0TUAQADAgADdwADPAQ"
+    
+    text = (
+        "╔═════════ 🔍 ═════════╗\n"
+        "   <b>NOMI BO'YICHA QIDIRISH</b>\n"
+        "╚═════════ 🔍 ═════════╝\n\n"
+        "✍️ Iltimos, qidirayotgan anime nomini  yozib yuboring.\n\n"
+        "⚠️ <b>Eslatma:</b> Nomni qanchalik to'g'ri va aniq yozsangiz, uni topish shunchalik oson bo'ladi!"
+    )
+    
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            # Orqaga bosganda boyagi qidiruv bosh menyusiga ('search_menu') qaytadi
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="search_menu", style="danger")]
+        ]
+    )
+    
+    try:
+        await callback.message.edit_media(
+            media=InputMediaPhoto(
+                media=search_image_file_id,
+                caption=text,
+                parse_mode="HTML"
+            ),
+            reply_markup=kb
+        )
+    except Exception as e:
+        logger.error(f"❌ Nomi bo'yicha qidiruv interfeysida xatolik: {e}")
+        await callback.message.answer("❌ Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.")
+
+    # Bu yerda foydalanuvchidan nomni qabul qilish va qidiruvni amalga oshirish uchun keyingi handler qo'shishingiz mumkin.
+
+
+@router.callback_query(lambda c: c.data == "search_by_id")
+async def search_by_id(callback: CallbackQuery):
+    await callback.answer()
+    
+    search_image_file_id = "AgACAgIAAxkBAAI8Vmo2h33mXWFJrVt2WytylhrKnSRKAAJHGGsbZ6WxSVOJWvc1e0TUAQADAgADdwADPAQ"
+    
+    text = (
+        "╔═════════ 🔍 ═════════╗\n"
+        "   <b>ID BO'YICHA QIDIRISH</b>\n"
+        "╚═════════ 🔍 ═════════╝\n\n"
+        "🔢 Iltimos, qidirayotgan anime ID sini yozib yuboring.\n\n"
+        "⚠️ <b>Eslatma:</b> ID raqamlardan iborat bo'lib, har bir anime uchun yagona bo'ladi!"
+    )
+    
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="search_menu", style="danger")]
+        ]
+    )
+    
+    try:
+        await callback.message.edit_media(
+            media=InputMediaPhoto(
+                media=search_image_file_id,
+                caption=text,
+                parse_mode="HTML"
+            ),
+            reply_markup=kb
+        )
+    except Exception as e:
+        logger.error(f"❌ ID bo'yicha qidiruv interfeysida xatolik: {e}")
+        await callback.message.answer("❌ Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.")
+
+    # Bu yerda foydalanuvchidan ID ni qabul qilish va qidiruvni amalga oshirish uchun keyingi handler qo'shishingiz mumkin.
+
+
+
+@router.callback_query(lambda c: c.data == "search_by_genre")
+async def search_by_genre(callback: CallbackQuery):
+    await callback.answer()
+    
+    search_image_file_id = "AgACAgIAAxkBAAI8Vmo2h33mXWFJrVt2WytylhrKnSRKAAJHGGsbZ6WxSVOJWvc1e0TUAQADAgADdwADPAQ"
+    
+    text = (
+        "╔═════════ 🔍 ═════════╗\n"
+        "   <b>JANR BO'YICHA QIDIRISH</b>\n"
+        "╚═════════ 🔍 ═════════╝\n\n"
+        "🎭 Iltimos, qidirayotgan anime janrini yozib yuboring.\n\n"
+        "⚠️ <b>Eslatma:</b> Janr nomini aniq yozsangiz, sizga mos keladigan animelarni topish osonroq bo'ladi!"
+    )
+    
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="search_menu", style="danger")]
+        ]
+    )
+    
+    try:
+        await callback.message.edit_media(
+            media=InputMediaPhoto(
+                media=search_image_file_id,
+                caption=text,
+                parse_mode="HTML"
+            ),
+            reply_markup=kb
+        )
+    except Exception as e:
+        logger.error(f"❌ Janr bo'yicha qidiruv interfeysida xatolik: {e}")
+        await callback.message.answer("❌ Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.")

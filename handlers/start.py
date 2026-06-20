@@ -1,4 +1,4 @@
-from aiogram import Router, html, types
+from aiogram import Router, html, types, F
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
 from services.user_service import UserService
@@ -6,6 +6,14 @@ from config import config
 
 CREATOR_ID = config.CREATOR_ID
 router = Router()
+
+
+@router.message(F.photo)
+async def get_bot_specific_file_id(message: Message):
+    # Bot aynan o'zi ko'rayotgan eng katta o'lchamli rasm ID-sini logga chiqaradi
+    photo_id = message.photo[-1].file_id
+    print(f"\n\n🔥 BOTINGIZ UCHUN TO'G'RI FILE_ID: {photo_id}\n\n")
+    await message.answer(f"✅ Rasm ID-si olindi! Uni nusxalab kodga qo'ying.\n\n<code>{photo_id}</code>")
 
 # 🎯 UNIVERSAL START INTERFEYSI (Ham yangi yuborish, ham edit qilish uchun)
 async def send_or_edit_start_menu(target: Message | CallbackQuery, user_id: int, username: str):
