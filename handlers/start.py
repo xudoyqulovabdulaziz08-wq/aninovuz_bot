@@ -23,13 +23,13 @@ async def send_or_edit_start_menu(target: Message | CallbackQuery, user_id: int,
     
     start_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔍 Qidiruv bo'limi", callback_data="search_menu")],
+            [InlineKeyboardButton(text="🔍 Qidiruv bo'limi", callback_data="search_menu", style="primary")],
             [
-                InlineKeyboardButton(text="Reklama berish 📢", callback_data="advertise"),
-                InlineKeyboardButton(text="Qo'llanma 📖", callback_data="guide")
+                InlineKeyboardButton(text="Reklama berish 📢", callback_data="advertise", style="primary"),
+                InlineKeyboardButton(text="Qo'llanma 📖", callback_data="guide", style="primary")
             ],
-            [InlineKeyboardButton(text="VIP olish 💎", callback_data="buy_vip")],
-            [InlineKeyboardButton(text="💬 Muammo bormi? Aloqa", callback_data="support")]
+            [InlineKeyboardButton(text="VIP olish 💎", callback_data="buy_vip", style="success")],
+            [InlineKeyboardButton(text="💬 Muammo bormi? Aloqa", callback_data="support", style="danger")]
         ]
     )
 

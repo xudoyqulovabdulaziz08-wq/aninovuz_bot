@@ -26,11 +26,11 @@ async def search_menu(callback: CallbackQuery):
     
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔍 Nomi bo'yicha qidirish", callback_data="search_by_name")],
-            [InlineKeyboardButton(text="🔢 ID bo'yicha qidirish", callback_data="search_by_id")],
-            [InlineKeyboardButton(text="🎭 Janr bo'yicha qidirish", callback_data="search_by_genre")],
+            [InlineKeyboardButton(text="🔍 Nomi bo'yicha qidirish", callback_data="search_by_name", style="primary")],
+            [InlineKeyboardButton(text="🔢 ID bo'yicha qidirish", callback_data="search_by_id", style="primary")],
+            [InlineKeyboardButton(text="🎭 Janr bo'yicha qidirish", callback_data="search_by_genre", style="primary")],
             # ⬇️ "Orqaga" tugmasi start.py faylidagi 'back_to_start' handleriga ulandi!
-            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="back_to_start")]
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="back_to_start", style="danger")]
         ]
     )
     
