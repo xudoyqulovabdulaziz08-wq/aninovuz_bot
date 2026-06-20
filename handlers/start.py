@@ -20,7 +20,7 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
         f"👋 Xush kelibsiz, {html.bold(username)}!\n\n"
         f"🎬 {html.bold('AniNovuz')} — siz qidirgan eng sara, sifatli va sevimli animelar makoniga qadam qo'ydingiz.\n"
         
-        f"🔑 {html.italic('STATUS')}: {html.bold(user.get('status', 'user').upper())}\n\n"
+        
         f"⚡️ Quyidagi  menyudan foydalanishingiz mumkin⬇️:"
     )
     
