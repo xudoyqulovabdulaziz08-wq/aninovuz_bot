@@ -1,30 +1,77 @@
 from aiogram import Router, html
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from services.user_service import UserService
 
-router = Router(name="start_router")
+router = Router(name=\"start_router\")
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, user: dict, user_service: UserService):
-    """
+    \"\"\"
     /start buyrug'i uchun handler.
-    E'tibor bering, 'user' va 'user_service' middleware'dan tayyor holatda keladi!
-    """
+    Rasm, original matn va rang-barang mukammal inline tugmalar bilan.
+    \"\"\"
     user_id = message.from_user.id
-    username = message.from_user.username or "foydalanuvchi"
+    username = message.from_user.username or "do'stim"
     
-    # 1. Foydalanuvchi ma'lumotlari allaqachon keshda yoki DBda mavjud (middleware buni hal qilgan)
-    # 2. Agar foydalanuvchiga qo'shimcha ball berish yoki statusini yangilash kerak bo'lsa:
-    # await user_service.add_points(user_id, points=10) # Masalan, start uchun bonus
+    # 1. Start uchun rasm havolasi (Telegraf yoki o'zingizning to'g'ri havolangiz)
+    # Maslahat: Pinterest yoki ixtiyoriy ochiq serverga rasm yuklab linkini qo'ying
+    start_image_url = "https://telegra.ph/file/a8d839bb002f256037e46.jpg" 
     
+    # 2. Hech kimnikiga o'xshamaydigan, original Copywriting (Matn)
     welcome_text = (
-        f"👋 Assalomu alaykum, {html.bold(username)}!\n\n"
-        f"🎬 {html.italic('Anime Qidiruv Botiga')} xush kelibsiz.\n"
-        f"Sizning ID: {html.code(user_id)}\n"
-        f"Statusingiz: {html.bold(user.get('status', 'user'))}\n\n"
-        f"🤖 Bot orqali sevimli animelaringizni nomi, ID-si yoki "
-        f"foto/skrinshot orqali (AI yordamida) qidirishingiz mumkin!"
+        f"👋 Xush kelibsiz, {html.bold(username)}!\n\n"
+        f"🎬 {html.bold('Anime Olami')} — siz qidirgan eng sara, sifatli va sevimli animelar makoniga qadam qo'ydingiz.\n\n"
+        f"📌 {html.italic('Sizning IDingiz')}: {html.code(user_id)}\n"
+        f"🔑 {html.italic('Sizning maqomingiz')}: {html.bold(user.get('status', 'user').upper())}\n\n"
+        f"⚡️ Quyidagi rangli menyudan foydalanib, darhol tomosha qilishni boshlashingiz mumkin:"
     )
     
-    await message.answer(text=welcome_text, parse_mode="HTML")
+    # 3. Mualliflik huquqini buzmaydigan, o'ziga xos va rang-barang tugmalar tuzilishi
+    start_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            # 🔵 Primary (Ko'k) - Asosiy brend harakati (Qidiruv)
+            [
+                InlineKeyboardButton(
+                    text="🔍 Qidruv bolimi", 
+                    callback_data="search_menu",
+                    style="primary"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Reklam berish📢",
+                    callback_data="advertise"
+                    style="primary"
+                ),
+                InlineKeyboardButton(
+                    text="Qo'llanma📖",
+                    callback_data="",
+                    style="primary"
+                )
+            ],
+            # 🟢 Success (Yashil) - Diqqatni jalb qiluvchi Premium taklif
+            [
+                InlineKeyboardButton(
+                    text="Vip olish💎", 
+                    callback_data="buy_vip",
+                    style="success"
+                )
+            ],
+            # 🔴 Danger (Qizil) - Muhim yordam va qo'llab-quvvatlash bo'limi
+            [
+                InlineKeyboardButton(
+                    text="💬 Muammo bormi? Aloqa", 
+                    callback_data="support",
+                    style="danger"
+                )
+            ]
+        ]
+    )
+    
+    # 4. Rasmli xabarni yuborish (caption ichida matn va reply_markup ichida tugmalar)
+    await message.answer_photo(
+        photo=start_image_url,
+        caption=welcome_text,
+        reply_markup=start_keyboard
+    )
