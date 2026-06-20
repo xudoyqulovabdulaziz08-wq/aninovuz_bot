@@ -2,7 +2,8 @@ from aiogram import Router, html
 from aiogram.filters import CommandStart
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from services.user_service import UserService
-from config import CREATOR_ID
+from config import config
+CREATOR_ID = config.CREATOR_ID  # Config faylidan CREATOR_ID ni olish
 from aiogram.types import InputMediaPhoto
 router = Router()
 
