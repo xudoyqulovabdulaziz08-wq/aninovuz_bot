@@ -3,19 +3,15 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from services.user_service import UserService
 
-router = Router(name=\"start_router\")
+router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, user: dict, user_service: UserService):
-    \"\"\"
-    /start buyrug'i uchun handler.
-    Rasm, original matn va rang-barang mukammal inline tugmalar bilan.
-    \"\"\"
+    
     user_id = message.from_user.id
     username = message.from_user.username or "do'stim"
     
-    # 1. Start uchun rasm havolasi (Telegraf yoki o'zingizning to'g'ri havolangiz)
-    # Maslahat: Pinterest yoki ixtiyoriy ochiq serverga rasm yuklab linkini qo'ying
+    # 1. Start uchun rasm havolasi
     start_image_url = "https://telegra.ph/file/a8d839bb002f256037e46.jpg" 
     
     # 2. Hech kimnikiga o'xshamaydigan, original Copywriting (Matn)
@@ -33,27 +29,27 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
             # 🔵 Primary (Ko'k) - Asosiy brend harakati (Qidiruv)
             [
                 InlineKeyboardButton(
-                    text="🔍 Qidruv bolimi", 
+                    text="🔍 Qidiruv bo'limi", 
                     callback_data="search_menu",
                     style="primary"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="Reklam berish📢",
-                    callback_data="advertise"
+                    text="Reklama berish 📢",
+                    callback_data="advertise", # <-- Vergul qo'shildi
                     style="primary"
                 ),
                 InlineKeyboardButton(
-                    text="Qo'llanma📖",
-                    callback_data="",
+                    text="Qo'llanma 📖",
+                    callback_data="guide", # <-- Bo'sh joy o'rniga "guide" so'zi yozildi
                     style="primary"
                 )
             ],
             # 🟢 Success (Yashil) - Diqqatni jalb qiluvchi Premium taklif
             [
                 InlineKeyboardButton(
-                    text="Vip olish💎", 
+                    text="VIP olish 💎", 
                     callback_data="buy_vip",
                     style="success"
                 )
@@ -69,7 +65,7 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
         ]
     )
     
-    # 4. Rasmli xabarni yuborish (caption ichida matn va reply_markup ichida tugmalar)
+    # 4. Rasmli xabarni yuborish
     await message.answer_photo(
         photo=start_image_url,
         caption=welcome_text,
