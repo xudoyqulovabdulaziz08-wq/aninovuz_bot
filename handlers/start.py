@@ -7,26 +7,25 @@ router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, user: dict, user_service: UserService):
-    
     user_id = message.from_user.id
     username = message.from_user.username or "do'stim"
     
-    # 1. Start uchun rasm havolasi
-    start_image_url = "https://telegra.ph/file/a8d839bb002f256037e46.jpg" 
+    # 🔥 Telegram serveridagi doimiy va eng sifatli rasm ID-si
+    start_image_file_id = "AgACAgIAAxkBAAFM9eZqNnyFaTj3fypf08VZfu0tYxfaeAACMhhrG3ncsEnzIfMcSD907wEAAwIAA3cAAzwE" 
     
-    # 2. Hech kimnikiga o'xshamaydigan, original Copywriting (Matn)
+    # 📝 Mukammal va o'ziga xos matn
     welcome_text = (
         f"👋 Xush kelibsiz, {html.bold(username)}!\n\n"
-        f"🎬 {html.bold('Anime Olami')} — siz qidirgan eng sara, sifatli va sevimli animelar makoniga qadam qo'ydingiz.\n\n"
+        f"🎬 {html.bold('AniNovuz')} — siz qidirgan eng sara, sifatli va sevimli animelar makoniga qadam qo'ydingiz.\n\n"
         f"📌 {html.italic('Sizning IDingiz')}: {html.code(user_id)}\n"
         f"🔑 {html.italic('Sizning maqomingiz')}: {html.bold(user.get('status', 'user').upper())}\n\n"
         f"⚡️ Quyidagi rangli menyudan foydalanib, darhol tomosha qilishni boshlashingiz mumkin:"
     )
     
-    # 3. Mualliflik huquqini buzmaydigan, o'ziga xos va rang-barang tugmalar tuzilishi
+    # 🎨 Eng yangi uslubdagi original rangli tugmalar
     start_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            # 🔵 Primary (Ko'k) - Asosiy brend harakati (Qidiruv)
+            # 🔵 Ko'k tugma (Asosiy harakat)
             [
                 InlineKeyboardButton(
                     text="🔍 Qidiruv bo'limi", 
@@ -34,19 +33,20 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
                     style="primary"
                 )
             ],
+            # Standart chiroyli ko'k tugmalar
             [
                 InlineKeyboardButton(
                     text="Reklama berish 📢",
-                    callback_data="advertise", # <-- Vergul qo'shildi
+                    callback_data="advertise",
                     style="primary"
                 ),
                 InlineKeyboardButton(
                     text="Qo'llanma 📖",
-                    callback_data="guide", # <-- Bo'sh joy o'rniga "guide" so'zi yozildi
+                    callback_data="guide",
                     style="primary"
                 )
             ],
-            # 🟢 Success (Yashil) - Diqqatni jalb qiluvchi Premium taklif
+            # 🟢 Yashil tugma (Premium taklif)
             [
                 InlineKeyboardButton(
                     text="VIP olish 💎", 
@@ -54,7 +54,7 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
                     style="success"
                 )
             ],
-            # 🔴 Danger (Qizil) - Muhim yordam va qo'llab-quvvatlash bo'limi
+            # 🔴 Qizil tugma (Yordam)
             [
                 InlineKeyboardButton(
                     text="💬 Muammo bormi? Aloqa", 
@@ -65,9 +65,9 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
         ]
     )
     
-    # 4. Rasmli xabarni yuborish
+    # 🚀 Rasmni mahalliy file_id orqali chaqmoqdek tezlikda yuborish
     await message.answer_photo(
-        photo=start_image_url,
+        photo=start_image_file_id,
         caption=welcome_text,
         reply_markup=start_keyboard
     )
