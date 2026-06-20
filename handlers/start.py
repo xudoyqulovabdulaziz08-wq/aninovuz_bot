@@ -18,7 +18,7 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
     # 📝 Mukammal va o'ziga xos matn
     welcome_text = (
         f"👋 Xush kelibsiz, {html.bold(username)}!\n\n"
-        f"🎬 {html.bold('AniNovuz')} — siz qidirgan eng sara, sifatli va sevimli animelar makoniga qadam qo'ydingiz.\n"
+        f"🎬 {html.bold('AniNovuz')} — siz qidirgan eng sara, sifatli va sevimli animelar makoniga qadam qo'ydingiz.\n\n"
         
         
         f"⚡️ Quyidagi  menyudan foydalanishingiz mumkin⬇️:"
