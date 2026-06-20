@@ -10,10 +10,9 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
     user_id = message.from_user.id
     username = message.from_user.username or "do'stim"
     
-    # 🔥 Telegram serveridagi doimiy va eng sifatli rasm ID-si
-    start_image_file_id = "AgACAgIAAxkBAAFM9eZqNnyFaTj3fypf08VZfu0tYxfaeAACMhhrG3ncsEnzIfMcSD907wEAAwIAA3cAAzwE" 
+    # ✅ 100% ishlaydigan to'g'ridan-to'g'ri rasm havolasi
+    start_image_url = "https://images.telegraph.uz/file/f4d7b2a59a72dfbe26fc8.png" 
     
-    # 📝 Mukammal va o'ziga xos matn
     welcome_text = (
         f"👋 Xush kelibsiz, {html.bold(username)}!\n\n"
         f"🎬 {html.bold('AniNovuz')} — siz qidirgan eng sara, sifatli va sevimli animelar makoniga qadam qo'ydingiz.\n\n"
@@ -22,10 +21,8 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
         f"⚡️ Quyidagi rangli menyudan foydalanib, darhol tomosha qilishni boshlashingiz mumkin:"
     )
     
-    # 🎨 Eng yangi uslubdagi original rangli tugmalar
     start_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            # 🔵 Ko'k tugma (Asosiy harakat)
             [
                 InlineKeyboardButton(
                     text="🔍 Qidiruv bo'limi", 
@@ -33,7 +30,6 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
                     style="primary"
                 )
             ],
-            # Standart chiroyli ko'k tugmalar
             [
                 InlineKeyboardButton(
                     text="Reklama berish 📢",
@@ -46,7 +42,6 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
                     style="primary"
                 )
             ],
-            # 🟢 Yashil tugma (Premium taklif)
             [
                 InlineKeyboardButton(
                     text="VIP olish 💎", 
@@ -54,7 +49,6 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
                     style="success"
                 )
             ],
-            # 🔴 Qizil tugma (Yordam)
             [
                 InlineKeyboardButton(
                     text="💬 Muammo bormi? Aloqa", 
@@ -65,9 +59,9 @@ async def cmd_start(message: Message, user: dict, user_service: UserService):
         ]
     )
     
-    # 🚀 Rasmni mahalliy file_id orqali chaqmoqdek tezlikda yuborish
+    # Rasm havolasini yuboramiz
     await message.answer_photo(
-        photo=start_image_file_id,
+        photo=start_image_url,
         caption=welcome_text,
         reply_markup=start_keyboard
     )
