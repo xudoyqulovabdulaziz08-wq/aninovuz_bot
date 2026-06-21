@@ -276,12 +276,12 @@ async def execute_delete_anime_handler(callback: CallbackQuery, session: Any):
     await callback.answer()
     anime_id = int(callback.data.split(":")[1])
     
-    # 💡 BUG FIX: Middleware bergan session ustida wrapper bo'lsa, real sessionni ajratib olamiz.
-    # Shunda AnimeService ichidagi .commit() to'g'ridan-to'g'ri DB ga yetib boradi va anime qaytib chiqmaydi!
-    real_session = session._session if hasattr(session, "_session") else session
-    
+    # 💡 ENDI BARCHASI XAVFSIZ: 
+    # Middleware'dan kelgan 'session' aslida SafeSession proxy obyekti.
+    # Biz uni to'g'ridan-to'g'ri uzatamiz, u o'zi kerak bo'lganda real bazaga ulanadi 
+    # va commit/rollback amallarini xavfsiz bajaradi.
     from services.anime_service import AnimeService
-    service = AnimeService(session=real_session)
+    service = AnimeService(session=session)
     
     ok = False
     try:
@@ -315,4 +315,7 @@ async def execute_delete_anime_handler(callback: CallbackQuery, session: Any):
     ])
     
     # Toza matn ko'rinishida yakuniy javobni yuboramiz
-    await callback.message.answer(text=success_text, reply_markup=kb, parse_mode="HTML")
+    try:
+        await callback.message.answer(text=success_text, reply_markup=kb, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"❌ Yakuniy xabarni yuborishda xato: {e}")
