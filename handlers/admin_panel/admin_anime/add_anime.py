@@ -9,7 +9,7 @@ import math
 
 from database.models import Genre
 from services.anime_service import AnimeService
-from .anime_menu import admin_anime_kb
+
 
 router = Router()
 
@@ -249,7 +249,7 @@ async def process_description(message: Message, state: FSMContext):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🟢 Ha, saqlansin", callback_data="db_save_anime"),
-            InlineKeyboardButton(text="🔴 Yo‘q, bekor qilish", callback_data="cancel_anime_add")
+            InlineKeyboardButton(text="🔴 Yo‘q, bekor qilish", callback_data="admin_anime_menu")
         ]
     ])
     
@@ -298,18 +298,8 @@ async def save_anime_to_db(callback: CallbackQuery, state: FSMContext, session: 
     except Exception as e:
         await callback.message.edit_caption(
             caption=f"❌ Xatolik yuz berdi: {html.code(str(e))}",
-            reply_markup=admin_anime_kb,
+            reply_markup=kb,
             parse_mode="HTML"
         )
 
 # ================= BEKOR QILISH HANDLERI =================
-@router.callback_query(F.data == "cancel_anime_add")
-async def cancel_anime_add(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.answer("Amal bekor qilindi", show_alert=True)
-    # Agar xabar rasm xabari bo'lsa uni o'chirib yuboramiz va menyuni qayta chiqaramiz
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await callback.message.answer("🎬 Anime boshqaruvi bosh menyusiga qaytdingiz.", reply_markup=admin_anime_kb)
