@@ -2,13 +2,13 @@ from aiogram import Router, html, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from dotenv.main import logger
-
+from aiogram.fsm.context import FSMContext
 router = Router()
 
 @router.callback_query(lambda c: c.data == "search_menu")
-async def search_menu(callback: CallbackQuery):
+async def search_menu(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    
+    await state.clear()
     # 🖼 Qidiruv bo'limi uchun rasm (Startdagi rasmni qoldirdik, o'zgartirmoqchi bo'lsangiz yangi file_id qo'yasiz)
     search_image_file_id = "AgACAgIAAxkBAAI8pmo2wwmGj_SoELEjURiyUyabzhwoAAI5GWsbZ6WxSUf3FNSMy6ajAQADAgADdwADPAQ"
     
@@ -148,7 +148,7 @@ async def search_by_id(callback: CallbackQuery):
 async def search_by_genre(callback: CallbackQuery):
     await callback.answer()
     
-    search_image_file_id = "AgACAgIAAxkBAAI8Vmo2h33mXWFJrVt2WytylhrKnSRKAAJHGGsbZ6WxSVOJWvc1e0TUAQADAgADdwADPAQ"
+    search_image_file_id = "AgACAgIAAxkBAAI8pmo2wwmGj_SoELEjURiyUyabzhwoAAI5GWsbZ6WxSUf3FNSMy6ajAQADAgADdwADPAQ"
     
     text = (
         "╔═════════ 🔍 ═════════╗\n"

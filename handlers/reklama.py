@@ -73,7 +73,7 @@ async def advertise_submit(callback: CallbackQuery):
         "<b>🛑 Reklama berish shartlari</b>\n"
         "<blockquote expandable> 1️⃣ Reklama 18+ kontentni o'z ichiga olmasligi kerak.</blockquote>\n"
         "<blockquote expandable> 2️⃣ Qimor, noqonuniy faoliyat yoki zararli dasturlarni targ'ib qilmasligi kerak.</blockquote>\n"
-        "<blockquote expandable> 3️⃣ Reklama mazmuni foydalanuvchilarni aldaydigan yoki zarar etkazadigan bo'lmasligi kerak.</blockquote>\n"
+        "<blockquote expandable> 3️⃣ Reklama mazmuni foydalanuvchilarni aldaydigan yoki zarar yetkazadigan bo'lmasligi kerak.</blockquote>\n"
         "<blockquote expandable> 4️⃣ Reklama mazmuni Telegramning xizmat ko'rsatish shartlariga zid bo'lmasligi kerak.</blockquote>\n"
         "<blockquote expandable> 5️⃣ Reklama mazmuni boshqa foydalanuvchilarni tahqirlash yoki kamsitish bo'lmasligi kerak.</blockquote>\n"
     )
