@@ -276,11 +276,17 @@ async def execute_delete_anime_handler(callback: CallbackQuery, session: Any):
     await callback.answer()
     anime_id = int(callback.data.split(":")[1])
     
-    # 💡 ENDI BARCHASI XAVFSIZ: 
-    # Middleware'dan kelgan 'session' aslida SafeSession proxy obyekti.
-    # Biz uni to'g'ridan-to'g'ri uzatamiz, u o'zi kerak bo'lganda real bazaga ulanadi 
-    # va commit/rollback amallarini xavfsiz bajaradi.
+    # 🎯 MUAMMONI ILDIZI BILAN YUQOTISH:
+    # SafeSession proxy hali bazaga ulanmagan bo'lsa, uni majburan uyg'otamiz.
+    # Bu orqali ichki _session obyekti None bo'lishdan to'xtaydi va SQLAlchemy sessiyasiga aylanadi.
+    try:
+        if hasattr(session, "_ensure_session"):
+            await session._ensure_session()
+    except Exception as e:
+        logger.error(f"❌ Lazy sessionni faollashtirishda xato: {e}")
+
     from services.anime_service import AnimeService
+    # Endi session ichidagi _session mutlaqo tayyor va None emas!
     service = AnimeService(session=session)
     
     ok = False
