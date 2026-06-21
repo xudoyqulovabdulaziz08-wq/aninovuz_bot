@@ -47,7 +47,7 @@ async def process_anime_list_page(callback: CallbackQuery, session: Any):
     else:
         try:
             await callback.message.edit_text(text=text, reply_markup=markup, parse_mode="HTML")
-            await callback.answer() # Faqat muvaffaqiyatli editdan keyin soatni o'chiramiz
+            await callback.answer("Yuklanmoqda...") # Faqat muvaffaqiyatli editdan keyin soatni o'chiramiz
         except Exception:
             await callback.answer()
 
@@ -130,7 +130,7 @@ async def view_anime_details(callback: CallbackQuery, session: Any):
     ])
 
     # 5. Interfeys qotib qolmasligi uchun answer shu yerda beriladi
-    await callback.answer() 
+    await callback.answer("Yuklanmoqda...") 
     
     try:
         await callback.message.delete()
@@ -235,7 +235,7 @@ async def get_anime_list_markup(session, page: int = 1, per_page: int = 10) -> t
 
 @router.callback_query(F.data.startswith("del_anime:"))
 async def confirm_delete_anime_handler(callback: CallbackQuery, session: Any):
-    await callback.answer()
+    await callback.answer("Yuklanmoqda...")
     anime_id = int(callback.data.split(":")[1])
     
     confirm_text = (
@@ -273,7 +273,7 @@ async def confirm_delete_anime_handler(callback: CallbackQuery, session: Any):
 
 @router.callback_query(F.data.startswith("burn_anime:"))
 async def execute_delete_anime_handler(callback: CallbackQuery, session: Any):
-    await callback.answer()
+    await callback.answer("O'chirilmoqda")
     anime_id = int(callback.data.split(":")[1])
     
     # 🎯 MUAMMONI ILDIZI BILAN YUQOTISH:
