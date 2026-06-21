@@ -121,8 +121,13 @@ class AnimeService:
     # ==================================================
     async def delete_anime(self, anime_id: int) -> bool:
         try:
+            # Session'ni oldin "uyg'otamiz"
+            if hasattr(self.session, "_ensure_session"):
+             await self.session._ensure_session()
+            
             ok = await self.repo.delete(self.session, anime_id)
-            await self.session.commit()
+        
+            await self.session.commit()   # ✅ Endi bir xil session
 
             if ok:
                 await self.cache.invalidate("anime", anime_id, broadcast=True)

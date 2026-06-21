@@ -136,9 +136,9 @@ class AnimeRepository:
     # ================= DELETE =================
     @staticmethod
     async def delete(session: Any, anime_id: int) -> bool:
-        session = await AnimeRepository._prepare_session(session)
+        real_session = await AnimeRepository._prepare_session(session)
 
-        result = await session.execute(
+        result = await real_session.execute(
             select(Anime).where(Anime.anime_id == anime_id)
         )
         anime = result.scalar_one_or_none()
@@ -146,7 +146,6 @@ class AnimeRepository:
         if not anime:
             return False
 
-        session.delete(anime) 
-        await session.flush()
-        
+        await real_session.delete(anime)   # ✅ await qo'shing!
+        await real_session.flush()
         return True
