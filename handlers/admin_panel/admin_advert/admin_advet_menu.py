@@ -8,8 +8,8 @@ router = Router()
 
 
 
-@router.callback_query(lambda c: c.data == "admin_vip_panel")
-async def admin_vip(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(lambda c: c.data == "admin_advertisement")
+async def admin_advertisement(callback: CallbackQuery, state: FSMContext):
     # Tugma bosilganda yuqoridagi soat belgisini darhol o'chiramiz
     await callback.answer()
     await state.clear()
