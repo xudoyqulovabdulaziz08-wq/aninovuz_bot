@@ -235,26 +235,38 @@ async def ask_delete_confirmation(callback: CallbackQuery, session: Any):
 
 @router.callback_query(F.data.startswith("chandel_confirm:"))
 async def execute_channel_deletion(callback: CallbackQuery, session: Any):
-    # Callback ma'lumotlarini ajratib olamiz
     _, channel_id_str, page_str = callback.data.split(":")
     channel_id = int(channel_id_str)
     page = int(page_str)
     
     service = ChannelService(session=session)
-    
-    # Biznes mantiq orqali bazadan o'chirish va keshni invalidatsiya qilish
     success = await service.delete_channel(channel_id)
     
     if not success:
         await callback.answer("❌ Kanalni o‘chirishda xatolik yuz berdi!", show_alert=True)
         return
         
-    # Chiroyli bildirishnoma (alert) chiqaradi
     await callback.answer("🗑 Kanal tizimdan butunlay o‘chirildi va kesh yangilandi!", show_alert=True)
     
-    # Kanal muvaffaqiyatli o'chgach, adminni avtomatik ravishda o'zi turgan sahifadagi ro'yxatga qaytaramiz
-    callback.data = f"chanpage:{page}"
-    await list_channels(callback, session)
+    # ❌ callback.data ni o'zgartirmaymiz.
+    # Buning o'rniga ro'yxatni to'g'ridan-to'g'ri shu yerda yangilaymiz:
+    all_channels = await service.get_all_channels()
+    active_count = sum(1 for ch in all_channels if ch.get("is_active"))
+    
+    text = (
+        f"📊 {html.bold('Kanallar statistikasi va ro‘yxati')}\n\n"
+        f"📌 {html.bold('Barcha kanallar soni:')} {len(all_channels)} ta\n"
+        f"✅ {html.bold('Faol kanallar soni:')} {active_count} ta\n\n"
+        f"👇 {html.underline('Batafsil ma’lumot olish uchun kanal ustiga bosing:')}"
+    )
+    
+    # Yuqorida yozgan get_channels_keyboard helper funksiyamizni chaqiramiz
+    kb = get_channels_keyboard(all_channels, page=page)
+    
+    try:
+        await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        pass
 
 
 
@@ -318,24 +330,56 @@ async def ask_toggle_confirmation(callback: CallbackQuery, session: Any):
 
 @router.callback_query(F.data.startswith("chantoggle_confirm:"))
 async def execute_channel_toggle(callback: CallbackQuery, session: Any):
-    # Callback ma'lumotlarini ajratib olamiz
     _, channel_id_str, page_str = callback.data.split(":")
     channel_id = int(channel_id_str)
     page = int(page_str)
     
     service = ChannelService(session=session)
-    
-    # Biznes mantiq orqali bazada holatni o'zgartirish va keshni yangilash
     success = await service.toggle_status(channel_id)
     
     if not success:
         await callback.answer("❌ Kanal holatini o‘zgartirishda xatolik yuz berdi!", show_alert=True)
         return
         
-    # Chiroyli bildirishnoma (toast) chiqaradi
     await callback.answer("🔄 Kanal holati muvaffaqiyatli yangilandi!")
     
-    # Holat o'zgargandan keyin adminni yana o'sha kanalning info sahifasiga qaytaramiz
-    # Buning uchun callback.data ni info handler tushunadigan formatga keltirib, o'sha fuksiyani chaqiramiz
-    callback.data = f"chaninfo:{channel_id}:{page}"
-    await show_channel_info(callback, session)
+    # ❌ callback.data = ... qatorini olib tashladik!
+    # Buning o'rniga obuna ma'lumotlarini qayta ko'rsatuvchi mantiqni shu yerning o'zida yoki 
+    # show_channel_info funksiyasini helper kabi chaqirib bajaramiz.
+    
+    # Eng toza va xavfsiz yo'li: modelni o'zgartirmasdan, kerakli funksiyaga context uzatish
+    # Buning uchun show_channel_info funksiyasini callback'ga qaram qilmasdan, parametrlarni qo'lda shakllantiramiz.
+    
+    # Keling, xatolik chiqmasligi uchun yangi info oynasini generatsiya qilamiz:
+    channel = await service.get_channel(channel_id)
+    if not channel:
+        await callback.message.edit_text("❌ Kanal topilmadi.", reply_markup=None)
+        return
+        
+    status_text = "🟢 Faol (Majburiy obuna tekshirilmoqda)" if channel.get("is_active") else "🔴 O‘chiq (Tekshirilmayapti)"
+    created_val = channel.get('created_at')
+    formatted_date = created_val[:19].replace("T", " ") if isinstance(created_val, str) else "Noma'lum"
+    
+    text = (
+        f"ℹ️ {html.bold('Kanal haqida batafsil ma’lumot')}\n\n"
+        f"📣 {html.bold('Kanal nomi:')} {channel.get('title')}\n"
+        f"🆔 {html.bold('Kanal ID:')} {html.code(channel.get('channel_id'))}\n"
+        f"🔗 {html.bold('Havola (URL):')} {channel.get('url') if channel.get('url') else 'Yo‘q'}\n"
+        f"⚙️ {html.bold('Holati:')} {status_text}\n"
+        f"📅 {html.bold('Qo‘shilgan vaqti:')} {formatted_date}\n"
+    )
+    
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔄 Holatni o‘zgartirish", callback_data=f"chantoggle:{channel_id}:{page}"),
+                InlineKeyboardButton(text="🗑 O‘chirish", callback_data=f"chandel:{channel_id}:{page}", style="danger")
+            ],
+            [InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"chanpage:{page}")]
+        ]
+    )
+    
+    try:
+        await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        pass
