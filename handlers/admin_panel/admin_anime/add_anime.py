@@ -129,7 +129,7 @@ async def process_poster(message: Message, state: FSMContext):
              f"👉 {html.bold('Nomi | Yili | Tili')}\n\n"
              f"📌 Masalan: {example}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_anime_add")]
+            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="admin_anime_menu")]
         ]),
         parse_mode="HTML"
     )
@@ -223,7 +223,7 @@ async def submit_genres(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         text=f"4️⃣ Endi anime uchun {html.bold('Tasnif (Description / Hikoya matni)')} yuboring:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_anime_add")]
+            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="admin_anime_menu")]
         ]),
         parse_mode="HTML"
     )
