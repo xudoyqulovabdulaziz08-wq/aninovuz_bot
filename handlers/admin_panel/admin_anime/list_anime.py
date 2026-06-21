@@ -3,7 +3,7 @@ import math
 from typing import Any
 from aiogram import Router, F, html
 
-
+from sqlalchemy import select
 
 
 
@@ -48,6 +48,79 @@ async def process_anime_list_page(callback: CallbackQuery, session: Any):
 
 
 
+
+
+
+
+
+@router.callback_query(F.data.startswith("v_anime:"))
+async def view_anime_details(callback: CallbackQuery, session: Any):
+    await callback.answer()
+    _, anime_id_str, page_str = callback.data.split(":")
+    anime_id = int(anime_id_str)
+    page = int(page_str) # Orqaga qaytishda aynan shu sahifaga qaytish uchun
+    
+    from services.anime_service import AnimeService
+    service = AnimeService(session=session)
+    anime = await service.get_anime(anime_id)
+    
+    if not anime:
+        await callback.message.answer("❌ Anime topilmadi yoki o‘chirilgan!")
+        return
+
+    # Ma'lumotlarni tayyorlaymiz
+    episodes_count = len(anime.get("episodes", []))
+    languages_str = ", ".join(anime.get("languages", []))
+    
+    # Janr nomlarini chiroyli shakllantirish
+    from database.models import Genre
+    genre_ids = anime.get("genres", [])
+    genre_names = []
+    if genre_ids:
+        res = await session.execute(select(Genre).where(Genre.id.in_(genre_ids)))
+        genre_names = [g.name for g in res.scalars().all()]
+    genres_str = ", ".join(genre_names) if genre_names else "Mavjud emas"
+
+    # Siz aytgan eski botning daxshat ramkali UX dizayni
+    caption = (
+        f"╔══════════════════╗\n"
+        f"     🎬 <b>{anime['title']}</b>\n"
+        f"╚══════════════════╝\n\n"
+        f"📌 <b>Anime haqida ma'lumot:</b>\n"
+        f"╔══════════════════╗\n"
+        f"├ 🆔 Kod: <code>#{anime['anime_id']}</code>\n"  
+        f"├ 📅 Yil: <b>{anime.get('year', '—')}</b>\n"
+        f"├ ▶️ Qism: <b>{episodes_count}</b> \n"
+        f"├ 🌐 Til: <b>{languages_str}</b>\n"
+        f"╚══════════════════╝\n"
+        f"╔══════════════════╗\n"
+        f"  🔮 Janrlar: <i>{genres_str}</i>\n"
+        f"╚══════════════════╝\n\n"
+        f"📝 <b>Tavsif:</b>\n"
+        f"<blockquote expandable>{anime.get('description', 'Tavsif kiritilmagan.')}</blockquote>"
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📹 Qismlarni tahrirlash", callback_data=f"manage_episodes:{anime_id}"),
+            InlineKeyboardButton(text="🗑 Animeni o‘chirish", callback_data=f"del_anime:{anime_id}", style="danger")
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"list_anime_page:{page}")
+        ]
+    ])
+
+    # 💡 TEXT -> MEDIA o'tish bo'lgani uchun eski ro'yxatni mutlaqo o'chiramiz
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    # Posterni turiga qarab (Rasm yoki Video) xavfsiz yuboramiz
+    try:
+        await callback.message.answer_photo(photo=anime["poster_id"], caption=caption, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        await callback.message.answer_video(video=anime["poster_id"], caption=caption, reply_markup=kb, parse_mode="HTML")
 
 
 
