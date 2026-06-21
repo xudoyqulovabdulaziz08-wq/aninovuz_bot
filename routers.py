@@ -11,7 +11,9 @@ from handlers import(
     creator_menu
 )
 from handlers.admin_panel.admin_anime import(
-    anime_menu
+    anime_menu,
+    add_anime,
+    janr
 )
 from handlers.admin_panel.admin_channel import(
     channel_menu,
@@ -42,6 +44,8 @@ main_router.include_routers(
     channel_menu.router,
     admin_advet_menu.router,
     admin_vip_menu.router,
+    add_anime.router,
+    janr.router,
 
     add_channel.router,
     list_channel.router,

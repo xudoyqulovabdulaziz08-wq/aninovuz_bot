@@ -2,7 +2,7 @@ from aiogram import Router, F, html
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.state import State, StatesGroup, Any
 from sqlalchemy import select
 from database.models import Genre
 
