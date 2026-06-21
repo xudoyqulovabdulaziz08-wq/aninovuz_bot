@@ -6,7 +6,8 @@ from handlers import(
     qollanma,
     reklama,
     buy_vip,
-    help
+    help,
+    admin_menu
 )
 
 
@@ -21,6 +22,8 @@ main_router = Router()
 main_router.include_routers(
 
     start.router,
+    admin_menu.router,
+
     qollanma.router,
     reklama.router,
     buy_vip.router,
