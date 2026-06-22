@@ -7,8 +7,8 @@ from dotenv.main import logger
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 from database.models import Genre
-
-
+from handlers.search_menu.anime_card import send_anime_card
+from services.anime_service import AnimeService
 
 router = Router()
 
@@ -132,19 +132,50 @@ async def search_by_genre(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("user_g_page:"))
 async def process_user_genre_page(callback: CallbackQuery, state: FSMContext, session: Any):
-    page = int(callback.data.split(":")[1])
-    
+    try:
+        page = int(callback.data.split(":")[1])
+    except (IndexError, ValueError) as e:
+        logger.error(f"❌ Sahifa raqamini ajratishda xato: {e}")
+        await callback.answer("❌ Sahifa yuklanishida xatolik.", show_alert=True)
+        return
+        
     # 🌟 "Janrlar yuklanmoqda..." ogohlantirishi (Bot qotib qolmasligi uchun)
     await callback.answer("⏳ Janrlar ro'yxati yuklanmoqda...", show_alert=False)
     
     user_data = await state.get_data()
     selected_genres = user_data.get("selected_genres", [])
     
-    # Faqat klaviaturani va matnni yangilaymiz (Rasm joyida qoladi)
+    # Klaviaturani bazadan yoki keshdan yangi sahifa uchun olamiz
     kb = await get_user_genres_search_markup(session, selected_genres, page=page)
     
     text = "🎭 <b>O'zingizga yoqqan janrlarni belgilang va pastdagi Qidirish tugmasini bosing:</b>"
-    await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="HTML")
+    
+    # 🌟 XAVFSIZ EDIT (Xabarni o'chib ketganlik yoki o'zgarmaganlik holatlarini tekshirish)
+    try:
+        await callback.message.edit_caption(
+            caption=text, 
+            reply_markup=kb, 
+            parse_mode="HTML"
+        )
+    except TelegramBadRequest as e:
+        error_msg = str(e).lower()
+        if "message to edit not found" in error_msg:
+            # Agar foydalanuvchi qidiruv tugmasini bosib, xabarni o'chirib yuborgan bo'lsa va 
+            # eski paginatsiya so'rovi yetib kelsa, xatoni yutib yuboramiz
+            logger.warning("⚠️ Paginatsiya xatosi: O'zgartirilishi kerak bo'lgan xabar topilmadi (o'chirilgan).")
+            pass
+        elif "message is not modified" in error_msg:
+            # Agar foydalanuvchi joriy sahifa tugmasini qayta-qayta bossa va kontent o'zgarmasa
+            pass
+        else:
+            # Agar boshqa turdagi Telegram BadRequest xatosi bo'lsa, logga yozamiz
+            logger.error(f"❌ Paginatsiyada kutilmagan Telegram xatoligi: {e}")
+            raise e
+    except Exception as e:
+        logger.error(f"❌ Paginatsiya tizimida kutilmagan xato: {e}")
+
+
+
 
 @router.callback_query(F.data.startswith("user_g_tog:"))
 async def process_user_genre_toggle(callback: CallbackQuery, state: FSMContext, session: Any):
@@ -165,7 +196,16 @@ async def process_user_genre_toggle(callback: CallbackQuery, state: FSMContext, 
     
     # Tugma holatini o'zgartirib qayta chizamiz
     kb = await get_user_genres_search_markup(session, selected_genres, page=page)
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    
+    # 🌟 XAVFSIZ EDIT (Xabarni o'chib ketganlik holatini tekshirish)
+    from aiogram.exceptions import TelegramBadRequest
+    try:
+        await callback.message.edit_reply_markup(reply_markup=kb)
+    except TelegramBadRequest as e:
+        if "message to edit not found" in str(e).lower() or "message is not modified" in str(e).lower():
+            pass  # Xabar allaqachon o'chirilgan yoki o'zgarishsiz bo'lsa xatoni yutib yuboramiz
+        else:
+            raise e  # Boshqa jiddiy xatolik bo'lsa logda ko'rinishi uchun qayta otamiz
 
 
 
@@ -233,3 +273,57 @@ async def process_user_genre_search_submit(callback: CallbackQuery, state: FSMCo
         reply_markup=kb,
         parse_mode="HTML"
     )
+
+
+
+
+
+
+@router.callback_query(F.data.startswith("user_g_view_"))
+async def process_user_genre_view_anime(callback: CallbackQuery, session: Any):
+    # Callback ma'lumotidan anime_id ni ajratib olamiz
+    # user_g_view_123 -> split("_") -> ['user', 'g', 'view', '123']
+    try:
+        anime_id = int(callback.data.split("_")[3])
+    except (IndexError, ValueError) as e:
+        logger.error(f"❌ Callback ma'lumotini o'qishda xato: {e}")
+        await callback.answer("❌ Ma'lumot xato keldi.", show_alert=True)
+        return
+
+    # 1. Darhol vaqtinchalik xabarni yuboramiz (Bot qotib qolmasligi uchun)
+    waiting_msg = await callback.message.answer("⏳ Yuborilmoqda...")
+    
+    # 2. Telegram'ning soat aylanib turadigan yuklanish holatini yopamiz
+    await callback.answer()
+
+    # 3. Eski natijalar ro'yxati (klaviatura) oynasini darhol o'chiramiz
+    try:
+        await callback.message.delete()
+    except TelegramBadRequest:
+        pass  # Agar xabar allaqachon o'chirilgan bo'lsa xatoni yutib yuboramiz
+
+    try:
+        # 4. AnimeService orqali ma'lumotlarni kesh yoki bazadan chaqiramiz
+        anime_service = AnimeService(session=session)
+        anime = await anime_service.get_anime(anime_id)
+
+        if not anime:
+            # Agar kutilmaganda anime topilmasa vaqtinchalik xabarni o'chirib, xato aytamiz
+            try:
+                await waiting_msg.delete()
+            except:
+                pass
+            await callback.message.answer("❌ Kechirasiz, ushbu anime ma'lumotlari topilmadi.")
+            return
+
+        # 5. Universal daxshatli dizayn funksiyasiga uzatamiz
+        # waiting_msg (yuborilmoqda...) xabarini berib yuboramiz, send_anime_card uni o'zi o'chirib o'rniga poster yuboradi!
+        await send_anime_card(waiting_msg, anime, session)
+
+    except Exception as e:
+        logger.error(f"❌ Anime kartasini ko'rsatishda kutilmagan xato: {e}")
+        try:
+            await waiting_msg.delete()
+        except:
+            pass
+        await callback.message.answer("❌ Tizimda xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.")
