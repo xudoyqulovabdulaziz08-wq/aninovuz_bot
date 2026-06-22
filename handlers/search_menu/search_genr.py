@@ -195,18 +195,10 @@ async def process_user_genre_search_submit(callback: CallbackQuery, state: FSMCo
     waiting_msg = await callback.message.answer("🔍 Qidirilmoqda...")
     await callback.answer()
     
-    # 3. Tanlangan hamma janrlarga mos keladigan animelarni bazadan (Repository orqali) qidiramiz
-    from repositories.anime_repository import AnimeRepository
-    # Eslatma: Multi-janr qidiruv algoritmi: hamma tanlangan janr ID'lari animeda bo'lishi kerak
-    # Biz kesh va bazani tekshirish uchun barcha animelarni ro'yxatini olib filtrlaymiz
-    all_animes = await AnimeRepository.list(session)
-    
-    found_animes = []
-    for anime in all_animes:
-        anime_genres = anime.get("genres", [])
-        # Tekshiramiz: Tanlangan barcha janrlar ushbu animeda bormi? (Multi-match)
-        if all(g_id in anime_genres for g_id in selected_genres):
-            found_animes.append(anime)
+    # 3. 🚀 YANGI ENGLIL VA TEZKOR QIDIRUV (Baza darajasida):
+    from services.anime_service import AnimeService
+    anime_service = AnimeService(session=session)
+    found_animes = await anime_service.search_by_genres(selected_genres)
             
     # Vaqtinchalik xabarni o'chiramiz
     try:
