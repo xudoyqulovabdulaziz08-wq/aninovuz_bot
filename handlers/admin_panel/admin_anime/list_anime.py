@@ -7,6 +7,8 @@ from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy import select
 from services.anime_service import AnimeService
 
+from aiogram.types import InputMediaVideo
+
 
 
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -373,17 +375,13 @@ async def manage_episodes_handler(callback: CallbackQuery, session: Any):
     # 3. Dinamik inline tugmalar ierarxiyasi
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            # Qism qo'shish tugmasi (yashil uslubda - success)
-            InlineKeyboardButton(text="➕ Qism qo‘shish", callback_data=f"add_episode:{anime_id}", style="success")
+            InlineKeyboardButton(text="➕ Qism qo‘shish", callback_data=f"add_episode:{anime_id}")
         ],
         [
-            # Qism o'chirish va almashtirish tugmalari
-            InlineKeyboardButton(text="🗑 Qism o‘chirish", callback_data=f"del_ep_menu:{anime_id}", style="danger"),
-            InlineKeyboardButton(text="🔄 Qism almashtirish", callback_data=f"swap_ep_menu:{anime_id}", style="primary")
+            InlineKeyboardButton(text="▶️ Qismlarni ko‘rish", callback_data=f"view_episodes_list:{anime_id}")
         ],
         [
-            # Orqaga qaytish (Asosiy tafsilotlar sahifasiga - page 1 fallback bilan)
-            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1", style="danger")
+            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1")
         ]
     ])
 
@@ -398,3 +396,185 @@ async def manage_episodes_handler(callback: CallbackQuery, session: Any):
                 await callback.message.edit_text(text=caption, reply_markup=kb, parse_mode="HTML")
             except Exception as err:
                 logger.error(f"❌ Panelni yangilashda xato: {err}")
+
+
+
+
+
+
+
+
+
+
+@router.callback_query(F.data.startswith("view_episodes_list:") | F.data.startswith("view_episodes_page:"))
+async def view_episodes_list_handler(callback: CallbackQuery, session: Any):
+    await callback.answer("Qismlar yuklanmoqda...")
+    
+    parts = callback.data.split(":")
+    anime_id = int(parts[1])
+    page = int(parts[2]) if len(parts) > 2 else 1
+
+    service = AnimeService(session=session)
+    anime = await service.get_anime(anime_id)
+    
+    if not anime:
+        await callback.message.answer("❌ Anime topilmadi!")
+        return
+
+    title = anime.get("title", "Nomsiz anime")
+    episodes = anime.get("episodes", [])
+
+    caption = (
+        f"╔══════════════════╗\n"
+        f"  🎬 <b>{title}</b>\n"
+        f"╚══════════════════╝\n\n"
+        f"📹 Ro‘yxatdan kerakli qismni tanlang.\n"
+        f"💡 {html.italic('Tanlangan qism videosi va uni boshqarish tugmalari shu yerning o‘zida ochiladi.')}"
+    )
+
+    markup = await get_episode_list_markup(anime_id=anime_id, episodes=episodes, page=page)
+
+    try:
+        await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
+    except TelegramBadRequest:
+        try:
+            await callback.message.edit_text(text=caption, reply_markup=markup, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"❌ Qismlar ro'yxatini tahrirlashda xato: {e}")
+
+
+
+
+
+
+
+
+
+
+async def get_episode_list_markup(anime_id: int, episodes: list, page: int = 1, per_page: int = 12) -> InlineKeyboardMarkup:
+    total_episodes = len(episodes)
+    
+    # Agar qismlar hali yuklanmagan bo'lsa
+    if total_episodes == 0:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⛔️ Qismlar mavjud emas", callback_data="void")],
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"manage_episodes:{anime_id}")]
+        ])
+
+    total_pages = math.ceil(total_episodes / per_page)
+    page = max(1, min(page, total_pages))
+
+    # Joriy sahifaga mos qismlarni kesib olish
+    start_idx = (page - 1) * per_page
+    current_page_episodes = episodes[start_idx : start_idx + per_page]
+
+    inline_keyboard = []
+    row = []
+
+    # Qismlarni chiroyli to'r (grid) ko'rinishida 3 tadan qilib joylaymiz
+    for ep in current_page_episodes:
+        ep_num = ep.get("episode")
+        # Har bir qism bosilganda 'show_ep:anime_id:ep_num:page' formatida callback ketadi
+        row.append(InlineKeyboardButton(
+            text=f"📹 {ep_num}-qism", 
+            callback_data=f"show_ep:{anime_id}:{ep_num}:{page}"
+        ))
+        
+        if len(row) == 3:  # Har 3 ta tugmadan keyin yangi qatorga o'tadi
+            inline_keyboard.append(row)
+            row = []
+            
+    if row:  # Qolib ketgan tugmalar bo'lsa qo'shib qo'yamiz
+        inline_keyboard.append(row)
+
+    # Paginatsiya (Navigatsiya) satri
+    nav_row = []
+    if page > 1:
+        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"view_episodes_page:{anime_id}:{page-1}"))
+    else:
+        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void"))
+
+    nav_row.append(InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="void"))
+
+    if page < total_pages:
+        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"view_episodes_page:{anime_id}:{page+1}"))
+    else:
+        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void"))
+
+    inline_keyboard.append(nav_row)
+
+    # Ortga qaytish satri
+    inline_keyboard.append([
+        InlineKeyboardButton(text="⬅️ Tahrirlash menyusiga", callback_data=f"manage_episodes:{anime_id}")
+    ])
+
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@router.callback_query(F.data.startswith("show_ep:"))
+async def show_specific_episode_handler(callback: CallbackQuery, session: Any):
+    await callback.answer("Video yuklanmoqda...")
+    
+    _, anime_id_str, ep_num_str, back_page_str = callback.data.split(":")
+    anime_id = int(anime_id_str)
+    ep_num = int(ep_num_str)
+    back_page = int(back_page_str)  # Orqaga qaytganda o'sha sahifani eslab qolish uchun
+
+    service = AnimeService(session=session)
+    anime = await service.get_anime(anime_id)
+    
+    if not anime:
+        await callback.message.answer("❌ Anime topilmadi!")
+        return
+
+    # Kerakli epizod ma'lumotlarini file_id si bilan ajratib olamiz
+    episodes = anime.get("episodes", [])
+    target_ep = next((ep for ep in episodes if ep.get("episode") == ep_num), None)
+
+    if not target_ep:
+        await callback.answer("❌ Ushbu qism videosi topilmadi!", show_alert=True)
+        return
+
+    file_id = target_ep.get("file_id")
+    title = anime.get("title", "Nomsiz anime")
+
+    # Siz aytgan tagidagi yozuv va dizayn
+    caption = (
+        f"🎬 <b>{title}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📹 Joriy qism: <b>{ep_num}-qism</b>\n\n"
+        f"🛠 <b>Admin amallari:</b>\n"
+        f"⚠️ {html.italic('Ushbu qismni o‘chirish yoki yangi faylga almashtirish uchun quyidagi tugmalardan foydalaning.')}"
+    )
+
+    # Admin boshqaruv tugmalari
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🗑 Ushbu qismni o‘chirish", callback_data=f"burn_ep:{anime_id}:{ep_num}:{back_page}"),
+            InlineKeyboardButton(text="🔄 Ushbu qismni almashtirish", callback_data=f"swap_ep:{anime_id}:{ep_num}:{back_page}")
+        ],
+        [
+            # Ro'yxatga qaytishda aynan qaysi sahifadan kelgan bo'lsa, o'shanga qaytadi
+            InlineKeyboardButton(text="⬅️ Qismlar ro‘yxatiga qaytish", callback_data=f"view_episodes_page:{anime_id}:{back_page}")
+        ]
+    ])
+
+    # 🔥 MEDIA EDIT: Posterni o'rniga haqiqiy videoni silliq joylashtiramiz
+    try:
+        new_media = InputMediaVideo(media=file_id, caption=caption, parse_mode="HTML")
+        await callback.message.edit_media(media=new_media, reply_markup=kb)
+    except TelegramBadRequest as e:
+        logger.error(f"❌ Media almashtirishda xatolik yuz berdi: {e}")
+        await callback.answer("❌ Videoni yuklashda xatolik! Fayl ID buzilgan bo'lishi mumkin.", show_alert=True)
