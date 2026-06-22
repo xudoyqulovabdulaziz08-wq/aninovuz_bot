@@ -157,29 +157,51 @@ async def process_anime_name_search(message: Message, state: FSMContext, session
 async def view_anime_details(callback: CallbackQuery, session: Any):
     """
     Nomi bo'yicha qidiruvdan so'ng tanlangan animeni universal dizaynda ko'rsatadi.
-    Admin bo'limidagi funksiyalar bilan chalkashmasligi uchun alohida nomlandi.
+    Telegram API cheklovlariga va xabarlarni toza o'chirishga moslashtirildi.
     """
-    # Callback ma'lumotidan anime_id ni ajratib olamiz
+    # 1. Callback ma'lumotidan anime_id ni ajratib olamiz
     try:
-        anime_id = int(callback.data.split("_")[2])
+        # split("_")[3] chunki data: "view_anime_detals_{id}" -> indexlar: 0:"view", 1:"anime", 2:"detals", 3:{id}
+        anime_id = int(callback.data.split("_")[3])
     except (IndexError, ValueError):
         await callback.answer("⚠️ Ma'lumotni o'qishda xatolik yuz berdi!", show_alert=True)
         return
 
-    # Foydalanuvchiga jarayon ketayotganini bildirish (Ekran qotib qolmasligi uchun)
+    # 2. Darhol foydalanuvchiga jarayon ketayotganini bildiramiz
     waiting_msg = await callback.message.answer("🔍 Yuborilmoqda...")
     await callback.answer()
 
-    # Biznes mantiq qatlami orqali anime ma'lumotlarini keshdan yoki bazadan olamiz
+    # 3. Nomi bo'yicha qidiruv natijalari turgan eski xabarni (tugmalari bilan) o'chirib tashlaymiz
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.debug(f"Eski qidiruv ro'yxatini o'chirishda xatolik: {e}")
+
+    # 4. Biznes mantiq qatlami orqali anime ma'lumotlarini olamiz
     from services.anime_service import AnimeService
     anime_service = AnimeService(session=session)
     anime = await anime_service.get_anime(anime_id)
 
     if not anime:
-        await callback.message.answer("❌ Kechirasiz, ushbu anime ma'lumotlar bazasidan topilmadi.")
-        await waiting_msg.delete()
+        # Agar kutilmaganda topilmasa, "Yuborilmoqda..." xabarini o'chirib, xato tugmalarini chiqaramiz
+        try:
+            await waiting_msg.delete()
+        except:
+            pass
+
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🔁 Qayta urinish", callback_data="search_by_name", style="success")],
+                [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="search_menu", style="danger")]
+            ]
+        )
+        await callback.message.answer(
+            text=f"❌ Kechirasiz, ushbu anime ma'lumotlar bazasidan topilmadi.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
         return
 
     # 🚀 DAXSHAT UNIVERSAL DIZAYNGA YUBORAMIZ:
-    # waiting_msg berib yuboriladi, send_anime_card ichidagi .delete() uni silliq o'chirib tashlaydi!
+    # waiting_msg uzatiladi, send_anime_card ichidagi .delete() "🔍 Yuborilmoqda..."ni o'chirib, o'rniga ramkali poster chiqaradi!
     await send_anime_card(waiting_msg, anime, session)
