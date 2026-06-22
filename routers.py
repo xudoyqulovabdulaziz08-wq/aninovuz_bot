@@ -34,6 +34,11 @@ from handlers.admin_panel.admin_vip import(
     admin_vip_menu
 )
 
+from handlers.search_menu import(
+    search_id,
+    search_name,
+    anime_card
+)
 
 
 main_router = Router()
@@ -64,13 +69,15 @@ main_router.include_routers(
     
     add_channel.router,
     list_channel.router,
-
+    anime_card.router,
     qollanma.router,
     reklama.router,
     buy_vip.router,
     help.router,
+    
 
 
-    search.router
+    search.router,
+    search_id.router
 
 )

@@ -1,10 +1,11 @@
 import logging
-
+from typing import Any
+from aiogram import Router, html, types, F
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from database.models import Genre
 from sqlalchemy import select
 
-
+router = Router()
 
 logger = logging.getLogger()
 

@@ -69,6 +69,9 @@ async def search_by_id(callback: CallbackQuery, state: FSMContext): # state qo's
 async def process_anime_id_search(message: Message, state: FSMContext, session: Any):
     raw_text = message.text.strip().replace("#", "")
     
+    # ✅ TO'G'RILANDI: Kichik harf bilan va show_alert'siz
+    await message.answer("🔍 Qidirilmoqda...") 
+    
     if not raw_text.isdigit():
         await message.answer("⚠️ Iltimos, faqat raqamlardan iborat ID kiriting!")
         return
@@ -86,4 +89,5 @@ async def process_anime_id_search(message: Message, state: FSMContext, session: 
     # 🚀 XUDDI O'SHA UNIVERSAL DIZAYN BU YERDA HAM ISHLAYDI:
     await send_anime_card(message, anime, session)
     
+    # Muaffaqiyatli yakunlangach, holatni tozalaymiz
     await state.clear()
