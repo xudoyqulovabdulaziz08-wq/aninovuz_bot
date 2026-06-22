@@ -77,13 +77,18 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
         not_subscribed = [r for r in results if r is not None]
 
         # ======================================================
-        # 🛑 Agar foydalanuvchi obuna bo'lmagan kanallar aniqlansa:
+        # 🛑 Middleware ichidagi blok: Agar obuna bo'lmagan bo'lsa:
         # ======================================================
         if not_subscribed:
+            # Agar foydalanuvchi deep link orqali kelgan bo'lsa, uni callback_data ichiga yashirib qo'yamiz!
+            cb_data = "check_sub"
+            if isinstance(event, Message) and event.text and "anime_" in event.text:
+                clean_param = event.text.split(" ")[1].replace(",", "")
+                cb_data = f"check_sub:{clean_param}" # Masalan: check_sub:anime_15
+
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"📢 {ch['title']}", url=ch['url'])] for ch in not_subscribed
-            ] + [[InlineKeyboardButton(text="🔄 Obunani tasdiqlash", callback_data="check_sub")]])
-            
+            ] + [[InlineKeyboardButton(text="🔄 Obunani tasdiqlash", callback_data=cb_data)]])
             text = "⚠️ <b>Botdan to'liq foydalanish uchun quyidagi homiy kanallarga a'zo bo'ling:</b>"
             
             if isinstance(event, Message):
@@ -118,17 +123,34 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
             except Exception as e:
                 logger.debug(f"Sub cache set error: {e}")
 
-        # Agar bu holat "Obunani tekshirish" tugmasi bosilishidan kelib chiqqan bo'lsa:
+        # 🔥 UX-SMOOTH YECHIM: Agar foydalanuvchi "Obunani tasdiqlash" tugmasini bosgan bo'lsa
         if force_check:
             await event.answer("🎉 Rahmat, obuna muvaffaqiyatli tasdiqlandi!", show_alert=True)
-            try:
-                await event.message.delete()  # Eski ogohlantirish xabarini o'chiramiz
-            except Exception:
-                pass
             
-            # Agar sizning routeringizda (handlerlar orasida) @dp.callback_query(F.data == "check_sub") 
-            # degan maxsus funksiya bo'lmasa, aiogram buni o'tkazib yuboradi va bot to'xtaydi.
-            return await handler(event, data)
+            # 💡 Xabarni o'chirmaymiz! Uni to'g'ridan-to'g'ri Asosiy Menyoga aylantiramiz.
+            # Shunda foydalanuvchi "Obunani tasdiqlash"ni bosishi bilan silliqgina asosiy menyu ochiladi.
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+            
+            welcome_text = (
+                f" <b>Obuna tastiqlandi</b>\n\n"
+                
+            )
+            
+            # Botning asosiy foydalanuvchi menyusi tugmalari (Sizda qanday bo'lsa o'shanga moslang)
+            
+            
+            try:
+                # Majburiy obuna matnini silliq qilib asosiy menyuga aylantiramiz
+                await event.message.edit_text(text=welcome_text, parse_mode="HTML")
+            except Exception:
+                # Agar tahrirlashda xato bo'lsa, yangi xabar qilib yuboramiz
+                await event.message.answer(text=welcome_text,  parse_mode="HTML")
+                try:
+                    await event.message.delete()
+                except Exception:
+                    pass
+            
+            return  # 🟢 Oqim muvaffaqiyatli yakunlandi, boshqa handlerga o'tish shart emas!
 
         # Odatiy xabar yoki callback oqimini o'z holicha davom ettirish
         return await handler(event, data)
