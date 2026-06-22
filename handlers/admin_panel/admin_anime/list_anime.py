@@ -5,7 +5,7 @@ from typing import Any
 from aiogram import Router, F, html
 from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy import select
-
+from services.anime_service import AnimeService
 
 
 
@@ -325,3 +325,76 @@ async def execute_delete_anime_handler(callback: CallbackQuery, session: Any):
         await callback.message.answer(text=success_text, reply_markup=kb, parse_mode="HTML")
     except Exception as e:
         logger.error(f"❌ Yakuniy xabarni yuborishda xato: {e}")
+
+
+
+
+
+
+
+
+
+
+
+@router.callback_query(F.data.startswith("manage_episodes:"))
+async def manage_episodes_handler(callback: CallbackQuery, session: Any):
+    # Interfeys qotib qolmasligi uchun darhol javob beramiz
+    await callback.answer("Yuklanmoqda...")
+    
+    anime_id = int(callback.data.split(":")[1])
+    
+    # 1. DB/Cache dan animeni xavfsiz yuklaymiz
+    service = AnimeService(session=session)
+    try:
+        anime = await service.get_anime(anime_id)
+    except Exception as e:
+        logger.error(f"❌ Tahrirlash uchun anime yuklashda xato: {e}")
+        anime = None
+
+    if not anime:
+        await callback.message.answer("❌ Anime topilmadi yoki o‘chirilgan!")
+        return
+
+    title = anime.get("title", "Nomsiz anime")
+    episodes = anime.get("episodes", [])
+    episodes_count = len(episodes)
+
+    # 2. Qismlar boshqaruvi uchun maxsus dizayn
+    caption = (
+        f"╔══════════════════╗\n"
+        f"  ⚙️ <b>Qismlarni boshqarish</b>\n"
+        f"╚══════════════════╝\n\n"
+        f"🎬 Anime: <b>{title}</b>\n"
+        f"🔢 Mavjud qismlar soni: <b>{episodes_count} ta</b>\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"💡 {html.italic('Quyidagi tugmalar orqali ushbu animening qismlarini qo‘shishingiz, o‘chirishingiz yoki fayllarini yangilashingiz mumkin.')}"
+    )
+
+    # 3. Dinamik inline tugmalar ierarxiyasi
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            # Qism qo'shish tugmasi (yashil uslubda - success)
+            InlineKeyboardButton(text="➕ Qism qo‘shish", callback_data=f"add_episode:{anime_id}")
+        ],
+        [
+            # Qism o'chirish va almashtirish tugmalari
+            InlineKeyboardButton(text="🗑 Qism o‘chirish", callback_data=f"del_ep_menu:{anime_id}"),
+            InlineKeyboardButton(text="🔄 Qism almashtirish", callback_data=f"swap_ep_menu:{anime_id}")
+        ],
+        [
+            # Orqaga qaytish (Asosiy tafsilotlar sahifasiga - page 1 fallback bilan)
+            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1")
+        ]
+    ])
+
+    # 4. Posterni o'chirmasdan, uning ostidagi matn va tugmalarni silliq yangilash
+    try:
+        # Agar xabarda media (photo/video) bo'lsa, caption va reply_markup o'zgaradi
+        await callback.message.edit_caption(caption=caption, reply_markup=kb, parse_mode="HTML")
+    except TelegramBadRequest as e:
+        # Agar xabar faqat matndan iborat bo'lsa (poster_id bo'lmagan holatda fallback)
+        if "message is not modified" not in str(e).lower():
+            try:
+                await callback.message.edit_text(text=caption, reply_markup=kb, parse_mode="HTML")
+            except Exception as err:
+                logger.error(f"❌ Panelni yangilashda xato: {err}")
