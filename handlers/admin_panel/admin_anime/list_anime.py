@@ -375,13 +375,13 @@ async def manage_episodes_handler(callback: CallbackQuery, session: Any):
     # 3. Dinamik inline tugmalar ierarxiyasi
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="➕ Qism qo‘shish", callback_data=f"add_episode:{anime_id}")
+            InlineKeyboardButton(text="➕ Qism qo‘shish", callback_data=f"add_episode:{anime_id}", style="success")
         ],
         [
-            InlineKeyboardButton(text="▶️ Qismlarni ko‘rish", callback_data=f"view_episodes_list:{anime_id}")
+            InlineKeyboardButton(text="▶️ Qismlarni ko‘rish", callback_data=f"view_episodes_list:{anime_id}", style="primary")
         ],
         [
-            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1")
+            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1", style="danger" )
         ]
     ])
 
@@ -457,8 +457,8 @@ async def get_episode_list_markup(anime_id: int, episodes: list, page: int = 1, 
     # Agar qismlar hali yuklanmagan bo'lsa
     if total_episodes == 0:
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⛔️ Qismlar mavjud emas", callback_data="void")],
-            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"manage_episodes:{anime_id}")]
+            [InlineKeyboardButton(text="⛔️ Qismlar mavjud emas", callback_data="void", style="danger")],
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"manage_episodes:{anime_id}", style="danger")]
         ])
 
     total_pages = math.ceil(total_episodes / per_page)
@@ -476,7 +476,7 @@ async def get_episode_list_markup(anime_id: int, episodes: list, page: int = 1, 
         ep_num = ep.get("episode")
         # Har bir qism bosilganda 'show_ep:anime_id:ep_num:page' formatida callback ketadi
         row.append(InlineKeyboardButton(
-            text=f"📹 {ep_num}-qism", 
+            text=f"📹 {ep_num} ▶️", 
             callback_data=f"show_ep:{anime_id}:{ep_num}:{page}"
         ))
         
@@ -490,22 +490,22 @@ async def get_episode_list_markup(anime_id: int, episodes: list, page: int = 1, 
     # Paginatsiya (Navigatsiya) satri
     nav_row = []
     if page > 1:
-        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"view_episodes_page:{anime_id}:{page-1}"))
+        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"view_episodes_page:{anime_id}:{page-1}", style="primary"))
     else:
-        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void"))
+        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void", style="danger"))
 
-    nav_row.append(InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="void"))
+    nav_row.append(InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="void", style="primary"))
 
     if page < total_pages:
-        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"view_episodes_page:{anime_id}:{page+1}"))
+        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"view_episodes_page:{anime_id}:{page+1}", style="primary"))
     else:
-        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void"))
+        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void", style="danger"))
 
     inline_keyboard.append(nav_row)
 
     # Ortga qaytish satri
     inline_keyboard.append([
-        InlineKeyboardButton(text="⬅️ Tahrirlash menyusiga", callback_data=f"manage_episodes:{anime_id}")
+        InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"manage_episodes:{anime_id}", style="danger")
     ])
 
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
@@ -562,12 +562,12 @@ async def show_specific_episode_handler(callback: CallbackQuery, session: Any):
     # Admin boshqaruv tugmalari
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🗑 Ushbu qismni o‘chirish", callback_data=f"burn_ep:{anime_id}:{ep_num}:{back_page}"),
-            InlineKeyboardButton(text="🔄 Ushbu qismni almashtirish", callback_data=f"swap_ep:{anime_id}:{ep_num}:{back_page}")
+            InlineKeyboardButton(text="🗑   O‘chirish", callback_data=f"burn_ep:{anime_id}:{ep_num}:{back_page}", style="danger" ),
+            InlineKeyboardButton(text="🔄  Almashtirish", callback_data=f"swap_ep:{anime_id}:{ep_num}:{back_page}", style="primary" )
         ],
         [
             # Ro'yxatga qaytishda aynan qaysi sahifadan kelgan bo'lsa, o'shanga qaytadi
-            InlineKeyboardButton(text="⬅️ Qismlar ro‘yxatiga qaytish", callback_data=f"view_episodes_page:{anime_id}:{back_page}")
+            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"view_episodes_page:{anime_id}:{back_page}", style="danger" )
         ]
     ])
 
