@@ -220,7 +220,7 @@ async def receive_new_swap_video_handler(message: Message, state: FSMContext):
             # Tasdiqlash: Maxsus callback orqali ijro etiladi
             InlineKeyboardButton(text="✅ Ha, almashtirilsin", callback_data="confirm_real_swap"),
             # Rad etish: FSMni yopib, eski videoni o'ziga qaytaradi
-            InlineKeyboardButton(text="❌ Yo‘q, bekor qilish", callback_data=f"show_ep:{anime_id}:{ep_num}")
+            InlineKeyboardButton(text="❌ Yo‘q, bekor qilish", callback_data=f"cancel_swap_process")
         ]
     ])
 
@@ -230,7 +230,24 @@ async def receive_new_swap_video_handler(message: Message, state: FSMContext):
 
 
 
-
+@router.callback_query(F.data == "cancel_swap_process", SwapEpisodeStates.waiting_for_new_video)
+async def cancel_swap_handler(callback: CallbackQuery, state: FSMContext, session: Any):
+    data = await state.get_data()
+    await state.clear()  # FSM holatidan chiqamiz
+    
+    await callback.answer("Jarayon bekor qilindi.")
+    try:
+        await callback.message.delete()  # Ogohlantirish matnini o'chiramiz
+    except Exception:
+        pass
+        
+    # 🔥 TO'G'RI VARIANT: Callback ob'ektidan xavfsiz nusxa olamiz va data'ni yangilaymiz
+    cloned_callback = callback.model_copy(
+        update={"data": f"show_ep:{data['anime_id']}:{data['ep_num']}:{data['back_page']}"}
+    )
+    
+    # Yangilangan klonlangan ob'ektni uzatamiz
+    await show_specific_episode_handler(cloned_callback, session=session)
 
 
 
@@ -249,7 +266,6 @@ async def execute_swap_handler(callback: CallbackQuery, state: FSMContext, sessi
     service = AnimeService(session=session)
     
     try:
-        # Metodni chaqirib yangilaymiz
         ok = await service.update_episode_file(
             anime_id=anime_id,
             episode_num=ep_num,
@@ -259,16 +275,21 @@ async def execute_swap_handler(callback: CallbackQuery, state: FSMContext, sessi
         logger.error(f"❌ Almashtirishda xato yuz berdi: {e}")
         ok = False
 
-    await state.clear() # FSM tozalash
-    await callback.message.delete() # Tasdiqlash xabarini tozalaymiz
+    await state.clear()  # FSM tozalash
+    try:
+        await callback.message.delete()  # Tasdiqlash xabarini tozalaymiz
+    except Exception:
+        pass
 
     if ok:
         await callback.answer(f"✅ {ep_num}-qism videosi muvaffaqiyatli almashtirildi!", show_alert=True)
     else:
         await callback.answer("❌ Tizimda xatolik yuz berdi, almashtirilmadi.", show_alert=True)
 
-    # Adminni o'zi turgan o'sha 12 talik sahifaga silliq qaytaramiz
-    # Kesh yangilangani uchun endi yangi video pleerda chiqadi
-    callback.data = f"show_ep:{anime_id}:{ep_num}:{back_page}"
-     # o'zingizni faylingiz nomidan import
-    await show_specific_episode_handler(callback, session=session)
+    # 🔥 TO'G'RI VARIANT: Callback ob'ektidan xavfsiz nusxa olamiz
+    cloned_callback = callback.model_copy(
+        update={"data": f"show_ep:{anime_id}:{ep_num}:{back_page}"}
+    )
+    
+    # Klonlangan ob'ektni uzatamiz, kesh yangilangani sababli yangi video silliq ochiladi
+    await show_specific_episode_handler(cloned_callback, session=session)
