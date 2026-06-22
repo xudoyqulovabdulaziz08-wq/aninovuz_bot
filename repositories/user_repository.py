@@ -175,3 +175,40 @@ class UserRepository:
         session.delete(user)  # SINXRON METOD (await olib tashlandi)
         await session.flush()
         return True
+    
+    # ================= GET ADMIN STATS =================
+    @staticmethod
+    async def get_admin_stats(session: Any) -> Dict[str, int]:
+        from sqlalchemy import func
+        # Aylanma importni oldini olish uchun qolgan modellarni shu yerda chaqiramiz
+        from database.models import Anime, Episode, Channel
+
+        session = await UserRepository._prepare_session(session)
+
+        # 1. Jami foydalanuvchilar soni
+        total_users_stmt = select(func.count(DBUser.user_id))
+        total_users = await session.scalar(total_users_stmt) or 0
+
+        # 2. VIP foydalanuvchilar soni (is_vip gibrid ustuni orqali)
+        vip_users_stmt = select(func.count(DBUser.user_id)).where(DBUser.is_vip)
+        vip_users = await session.scalar(vip_users_stmt) or 0
+
+        # 3. Jami Animelar soni
+        total_anime_stmt = select(func.count(Anime.anime_id))
+        total_anime = await session.scalar(total_anime_stmt) or 0
+
+        # 4. Jami yuklangan Qismlar (Epizodlar) soni
+        total_episodes_stmt = select(func.count(Episode.id))
+        total_episodes = await session.scalar(total_episodes_stmt) or 0
+
+        # 5. Jami faol majburiy obuna kanallari soni
+        active_channels_stmt = select(func.count(Channel.id)).where(Channel.is_active == True)
+        active_channels = await session.scalar(active_channels_stmt) or 0
+
+        return {
+            "total_users": total_users,
+            "vip_users": vip_users,
+            "total_anime": total_anime,
+            "total_episodes": total_episodes,
+            "active_channels": active_channels
+        }

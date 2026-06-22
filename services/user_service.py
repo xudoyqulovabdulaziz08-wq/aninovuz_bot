@@ -200,3 +200,25 @@ class UserService:
             await self.session.rollback()
             logger.error(f"❌ Failed to delete user {user_id}: {e}")
             raise e
+        
+
+    # ==================================================
+    # 📊 ADMIN STATS (CACHE-AWARE)
+    # ==================================================
+    async def get_admin_statistics(self) -> Dict[str, int]:
+        # Avval keshdan tekshiramiz
+        cached_stats = await self.cache.get("admin", "stats")
+        if cached_stats:
+            logger.debug("🎯 Admin stats loaded from cache")
+            return cached_stats
+
+        if hasattr(self.session, "_ensure_session"):
+            await self.session._ensure_session()
+
+        # 🔥 TO'G'RI VARIANT: UserRepository metodidan foydalanamiz
+        from repositories.user_repository import UserRepository
+        stats = await UserRepository.get_admin_stats(self.session)
+        
+        # 5 daqiqaga keshga yozib qo'yamiz
+        await self.cache.set("admin", "stats", stats, ttl=300)
+        return stats

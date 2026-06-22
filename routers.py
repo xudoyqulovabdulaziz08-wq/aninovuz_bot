@@ -10,6 +10,9 @@ from handlers import(
     admin_menu,
     creator_menu
 )
+from handlers.admin_panel import(
+    admin_stastika
+)
 from handlers.admin_panel.admin_anime import(
     anime_menu,
     add_anime,
@@ -47,6 +50,9 @@ main_router.include_routers(
     channel_menu.router,
     admin_advet_menu.router,
     admin_vip_menu.router,
+    admin_stastika.router,
+
+
     add_anime.router,
     list_anime.router,
     janr.router,
