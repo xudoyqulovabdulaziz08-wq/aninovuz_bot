@@ -8,7 +8,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from repositories.channel_repository import ChannelRepository
 from database.cache import valkey
-
+from services.channel_service import ChannelService
 logger = logging.getLogger("CheckSubscriptionMiddleware")
 
 class CheckSubscriptionMiddleware(BaseMiddleware):
