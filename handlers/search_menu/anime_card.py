@@ -60,8 +60,8 @@ async def send_anime_card(message: Message, anime: dict, session: Any) -> bool:
 
     # Inline tugmalar (style olingan, chunki url/callback tugmalarda style bo'lmaydi)
     user_anime_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📹 Qismlarni tomosha qilish", callback_data=f"show_episodes_user:{anime_id}")],
-        [InlineKeyboardButton(text="⬅️ Bosh menyuga qaytish", callback_data="back_to_start")]
+        [InlineKeyboardButton(text="📹 Qismlarni tomosha qilish", callback_data=f"show_episodes_user:{anime_id}", style="primary")],
+        [InlineKeyboardButton(text="⬅️ Bosh menyuga qaytish", callback_data="back_to_start", style="danger")]
     ])
 
     # Silliq o'chirish (agar iloji bo'lsa)
