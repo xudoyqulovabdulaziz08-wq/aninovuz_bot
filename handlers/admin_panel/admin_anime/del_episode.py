@@ -236,25 +236,16 @@ async def cancel_swap_handler(callback: CallbackQuery, state: FSMContext, sessio
     await state.clear()  # FSM holatidan chiqamiz
     
     await callback.answer("Jarayon bekor qilindi.")
-    try:
-        await callback.message.delete()  # Ogohlantirish matnini o'chiramiz
-    except Exception:
-        pass
-        
-    # 🔥 TO'G'RI VARIANT: Callback ob'ektidan xavfsiz nusxa olamiz va data'ni yangilaymiz
+    
+    # ❌ callback.message.delete() bu yerda ham bo'lmasligi shart!
+    
     cloned_callback = callback.model_copy(
         update={"data": f"show_ep:{data['anime_id']}:{data['ep_num']}:{data['back_page']}"}
     )
-    
-    # Yangilangan klonlangan ob'ektni uzatamiz
     await show_specific_episode_handler(cloned_callback, session=session)
 
 
 
-
-
-
-# --- Tasdiqlash (Bazaga yozish) ---
 @router.callback_query(F.data == "confirm_real_swap", SwapEpisodeStates.waiting_for_new_video)
 async def execute_swap_handler(callback: CallbackQuery, state: FSMContext, session: Any):
     data = await state.get_data()
@@ -276,20 +267,19 @@ async def execute_swap_handler(callback: CallbackQuery, state: FSMContext, sessi
         ok = False
 
     await state.clear()  # FSM tozalash
-    try:
-        await callback.message.delete()  # Tasdiqlash xabarini tozalaymiz
-    except Exception:
-        pass
+
+    # ❌ BU YERDAGI callback.message.delete() NI OLIB TASHLADIK!
+    # Chunki u o'chib ketsa, pastdagi funksiya tahrirlashga xabar topolmay qoladi.
 
     if ok:
         await callback.answer(f"✅ {ep_num}-qism videosi muvaffaqiyatli almashtirildi!", show_alert=True)
     else:
         await callback.answer("❌ Tizimda xatolik yuz berdi, almashtirilmadi.", show_alert=True)
 
-    # 🔥 TO'G'RI VARIANT: Callback ob'ektidan xavfsiz nusxa olamiz
+    # Callback ob'ektidan xavfsiz nusxa olamiz
     cloned_callback = callback.model_copy(
         update={"data": f"show_ep:{anime_id}:{ep_num}:{back_page}"}
     )
     
-    # Klonlangan ob'ektni uzatamiz, kesh yangilangani sababli yangi video silliq ochiladi
+    # Endi show_specific_episode_handler aynan shu mavjud xabarni video pleerga aylantiradi
     await show_specific_episode_handler(cloned_callback, session=session)
