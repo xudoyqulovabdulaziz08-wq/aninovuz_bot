@@ -171,7 +171,32 @@ class AnimeService:
                 await self.session.rollback()
             logger.error(f"❌ Failed to delete anime: {e}")
             raise e
+        
+        
+    # ==================================================
+    # 🔄 UPDATE EPISODE FILE (TRANSACTION SAFE)
+    # ==================================================
+    async def update_episode_file(self, anime_id: int, episode_num: int, new_file_id: str) -> bool:
+        try:
+            if hasattr(self.session, "_ensure_session"):
+                await self.session._ensure_session()
+            
+            ok = await self.repo.update_episode_file(self.session, anime_id, episode_num, new_file_id)
+            await self.session.commit()
 
+            if ok:
+                # Keshni invalidatsiya qilamiz, shunda yangi video pleerda darhol ko'rinadi
+                await self.cache.invalidate("anime", anime_id, broadcast=True)
+                await self.cache.invalidate("anime", "all", broadcast=True)
+                logger.info(f"🔄 Episode file updated + cache invalidated: Anime {anime_id}, Ep {episode_num}")
+
+            return ok
+
+        except Exception as e:
+            if self.session and hasattr(self.session, "rollback"):
+                await self.session.rollback()
+            logger.error(f"❌ Failed to update episode file: {e}")
+            raise e
     # ==================================================
     # 🔎 SEARCH MAP 
     # ==================================================

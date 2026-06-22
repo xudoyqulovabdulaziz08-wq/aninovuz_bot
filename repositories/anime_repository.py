@@ -166,4 +166,18 @@ class AnimeRepository:
         await real_session.flush()
         return True
     
-    
+    # ================= UPDATE EPISODE FILE =================
+    @staticmethod
+    async def update_episode_file(session: Any, anime_id: int, episode_num: int, new_file_id: str) -> bool:
+        from sqlalchemy import update
+        real_session = await AnimeRepository._prepare_session(session)
+
+        stmt = (
+            update(Episode)
+            .where(Episode.anime_id == anime_id, Episode.episode == episode_num)
+            .values(file_id=new_file_id)
+        )
+        result = await real_session.execute(stmt)
+        await real_session.flush()
+        
+        return result.rowcount > 0
