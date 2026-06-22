@@ -1,13 +1,14 @@
 
-from aiogram import Router, html, types
+from typing import Any
+from aiogram import Router, html, types, F
 from aiogram.fsm.state import StatesGroup, State
 
 from services.anime_service import AnimeService
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, Message
 from dotenv.main import logger
 from aiogram.fsm.context import FSMContext
-
+from handlers.search_menu.anime_card import send_anime_card
 
 
 
@@ -60,3 +61,29 @@ async def search_by_id(callback: CallbackQuery, state: FSMContext): # state qo's
 
     # 🚀 MANA SHU QATOR QO'SHILDI: Bot foydalanuvchidan ID kelishini kutadi
     await state.set_state(SearchStates.waiting_for_anime_id)
+
+
+
+
+@router.message(SearchStates.waiting_for_anime_id, F.text)
+async def process_anime_id_search(message: Message, state: FSMContext, session: Any):
+    raw_text = message.text.strip().replace("#", "")
+    
+    if not raw_text.isdigit():
+        await message.answer("⚠️ Iltimos, faqat raqamlardan iborat ID kiriting!")
+        return
+
+    anime_id = int(raw_text)
+    
+    from services.anime_service import AnimeService
+    anime_service = AnimeService(session=session)
+    anime = await anime_service.get_anime(anime_id)
+
+    if not anime:
+        await message.answer(f"🔍 <b>#{anime_id}</b> kodli anime topilmadi!\nQayta tekshirib ko'ring.")
+        return
+
+    # 🚀 XUDDI O'SHA UNIVERSAL DIZAYN BU YERDA HAM ISHLAYDI:
+    await send_anime_card(message, anime, session)
+    
+    await state.clear()

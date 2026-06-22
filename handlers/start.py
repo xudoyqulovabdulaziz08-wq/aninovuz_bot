@@ -5,6 +5,7 @@ from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
 from services.user_service import UserService
 from config import config
+from handlers.search_menu.anime_card import send_anime_card
 from aiogram.fsm.context import FSMContext
 logger = logging.getLogger("StartRouter")
 CREATOR_ID = config.CREATOR_ID
