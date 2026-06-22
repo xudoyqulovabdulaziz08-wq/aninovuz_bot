@@ -77,6 +77,9 @@ async def cmd_start(message: Message, command: CommandObject, session: Any, user
     
     # 🚀 KANAL TUGMASIDAN PARAMETR KELGANDA (Masalan: /start anime_15,)
     if command.args:
+        # 🌟 "🔍 Yuborilmoqda..." matni bilan vaqtinchalik xabarni saqlaymiz
+        waiting_msg = await message.answer("🔍 Yuborilmoqda...")
+        
         clean_args = command.args.strip().rstrip(",")
         if clean_args.startswith("anime_"):
             try:
@@ -87,14 +90,22 @@ async def cmd_start(message: Message, command: CommandObject, session: Any, user
                 anime = await service.get_anime(anime_id)
                 
                 if anime:
-                    # 🚀 MANA — BITTACXAGI QATOR BILAN HAMMA ISH BITDI:
-                    await send_anime_card(message, anime, session)
+                    # 🚀 "message" o'rniga "waiting_msg" beriladi, shunda poster yuklangach u o'chib ketadi!
+                    await send_anime_card(waiting_msg, anime, session)
                     return
+                else:
+                    # Anime topilmasa, vaqtinchalik xabarni o'chirib tashlaymiz
+                    await waiting_msg.delete()
                     
             except Exception as ex:
                 logger.error(f"❌ Deep link ishlashida xatolik: {ex}")
+                # Xatolik yuz bersa ham vaqtinchalik xabar o'chiriladi
+                try:
+                    await waiting_msg.delete()
+                except:
+                    pass
 
-    # Agarda oddiy start bo'lsa, asosiy menyuni yangi xabar sifatida yuboramiz
+    # Agarda oddiy start bo'lsa yoki anime topilmasa, asosiy menyuni chiqaradi
     await send_or_edit_start_menu(message, user_id, username)
 
     # Admin/Creator panellari

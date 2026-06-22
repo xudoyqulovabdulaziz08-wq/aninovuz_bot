@@ -70,7 +70,7 @@ async def process_anime_id_search(message: Message, state: FSMContext, session: 
     raw_text = message.text.strip().replace("#", "")
     
     # 🌟 "🔍 Yuborilmoqda..." xabari yuboriladi
-    waiting_msg = await message.answer("🔍 Yuborilmoqda...") 
+    waiting_msg = await message.answer("🔍 So'rov bajarilmoqda...") 
     
     if not raw_text.isdigit():
         await message.answer("⚠️ Iltimos, faqat raqamlardan iborat ID kiriting!")
