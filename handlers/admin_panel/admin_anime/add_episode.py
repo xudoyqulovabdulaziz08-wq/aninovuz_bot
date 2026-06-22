@@ -53,7 +53,7 @@ async def start_add_episode(callback: CallbackQuery, state: FSMContext, session:
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Orqaga (Bekor qilish)", callback_data=f"v_anime:{anime_id}:1")]
+        [InlineKeyboardButton(text="⬅️ Orqaga (Bekor qilish)", callback_data=f"v_anime:{anime_id}:1", style="danger")]
     ])
 
     await callback.message.answer(text=text, reply_markup=kb, parse_mode="HTML")
@@ -132,11 +132,11 @@ async def wait_and_finish_collection(message: Message, state: FSMContext):
 
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="💾 Faqat bazaga saqlash", callback_data=f"save_episodes_db:{anime_id}"),
-                InlineKeyboardButton(text="📢 Kanalga e‘lon qilish", callback_data=f"publish_episodes_chan:{anime_id}")
+                InlineKeyboardButton(text="💾 Faqat bazaga saqlash", callback_data=f"save_episodes_db:{anime_id}", style="primary"),
+                InlineKeyboardButton(text="📢 Kanalga e‘lon qilish", callback_data=f"publish_episodes_chan:{anime_id}", style="primary")
             ],
             [
-                InlineKeyboardButton(text="❌ Bekor qilish", callback_data=f"v_anime:{anime_id}:1")
+                InlineKeyboardButton(text="❌ Bekor qilish", callback_data=f"v_anime:{anime_id}:1", style="danger")
             ]
         ])
 
@@ -207,7 +207,7 @@ async def save_episodes_to_database(callback: CallbackQuery, state: FSMContext, 
         )
         
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Anime sahifasiga", callback_data=f"list_anime_page")]
+            [InlineKeyboardButton(text="⬅️ Anime sahifasiga", callback_data=f"list_anime_page", style="danger")]
         ])
         
         await callback.message.answer(text=final_text, reply_markup=kb, parse_mode="HTML")

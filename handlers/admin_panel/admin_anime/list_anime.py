@@ -121,11 +121,11 @@ async def view_anime_details(callback: CallbackQuery, session: Any):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📹 Qismlarni tahrirlash", callback_data=f"manage_episodes:{anime_id}"),
+            InlineKeyboardButton(text="📹 Qismlarni tahrirlash", callback_data=f"manage_episodes:{anime_id}", style="primary"),
             InlineKeyboardButton(text="🗑 Animeni o‘chirish", callback_data=f"del_anime:{anime_id}", style="danger")
         ],
         [
-            InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"list_anime_page:{page}")
+            InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"list_anime_page:{page}", style="danger")
         ]
     ])
 
@@ -180,7 +180,7 @@ async def get_anime_list_markup(session, page: int = 1, per_page: int = 10) -> t
     # 2. Agar anime umuman topilmasa
     if total_anime == 0:
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Anime menyusiga", callback_data="admin_anime")]
+            [InlineKeyboardButton(text="⬅️ Anime menyusiga", callback_data="admin_anime", style="danger")]
         ])
         return kb, 0
 
@@ -211,16 +211,16 @@ async def get_anime_list_markup(session, page: int = 1, per_page: int = 10) -> t
     # 6. Paginatsiya (Navigatsiya) satri
     nav_row = []
     if page > 1:
-        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"list_anime_page:{page-1}"))
+        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"list_anime_page:{page-1}", style="primary"))
     else:
-        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void"))
+        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void", style="danger"))
 
-    nav_row.append(InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="void"))
+    nav_row.append(InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="void", style="primary"))
 
     if page < total_pages:
-        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"list_anime_page:{page+1}"))
+        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"list_anime_page:{page+1}", style="primary"))
     else:
-        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void"))
+        nav_row.append(InlineKeyboardButton(text="⛔️", callback_data="void", style="danger"))
 
     inline_keyboard.append(nav_row)
 
@@ -247,8 +247,8 @@ async def confirm_delete_anime_handler(callback: CallbackQuery, session: Any):
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Ha,  o‘chirish", callback_data=f"burn_anime:{anime_id}"),
-            InlineKeyboardButton(text="❌ bekor qilish", callback_data=f"v_anime:{anime_id}:1")
+            InlineKeyboardButton(text="✅ Ha,  o‘chirish", callback_data=f"burn_anime:{anime_id}", style="success"),
+            InlineKeyboardButton(text="❌ bekor qilish", callback_data=f"v_anime:{anime_id}:1", style="danger")
         ]
     ])
     
@@ -317,7 +317,7 @@ async def execute_delete_anime_handler(callback: CallbackQuery, session: Any):
         )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Animelar ro‘yxatiga", callback_data="list_anime_page:1")]
+        [InlineKeyboardButton(text="⬅️ Animelar ro‘yxatiga", callback_data="list_anime_page:1", style="danger")]
     ])
     
     # Toza matn ko'rinishida yakuniy javobni yuboramiz
@@ -374,16 +374,16 @@ async def manage_episodes_handler(callback: CallbackQuery, session: Any):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             # Qism qo'shish tugmasi (yashil uslubda - success)
-            InlineKeyboardButton(text="➕ Qism qo‘shish", callback_data=f"add_episode:{anime_id}")
+            InlineKeyboardButton(text="➕ Qism qo‘shish", callback_data=f"add_episode:{anime_id}", style="success")
         ],
         [
             # Qism o'chirish va almashtirish tugmalari
-            InlineKeyboardButton(text="🗑 Qism o‘chirish", callback_data=f"del_ep_menu:{anime_id}"),
-            InlineKeyboardButton(text="🔄 Qism almashtirish", callback_data=f"swap_ep_menu:{anime_id}")
+            InlineKeyboardButton(text="🗑 Qism o‘chirish", callback_data=f"del_ep_menu:{anime_id}", style="danger"),
+            InlineKeyboardButton(text="🔄 Qism almashtirish", callback_data=f"swap_ep_menu:{anime_id}", style="primary")
         ],
         [
             # Orqaga qaytish (Asosiy tafsilotlar sahifasiga - page 1 fallback bilan)
-            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1")
+            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1", style="danger")
         ]
     ])
 
