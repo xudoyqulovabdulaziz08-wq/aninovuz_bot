@@ -1,5 +1,5 @@
 from aiogram import Router
-
+from middlewares.check_sub_middleware import CheckSubscriptionMiddleware
 from handlers import(
     start,
     search,
@@ -38,7 +38,8 @@ from handlers.admin_panel.admin_vip import(
 
 main_router = Router()
 
-
+main_router.message.middleware(CheckSubscriptionMiddleware())
+main_router.callback_query.middleware(CheckSubscriptionMiddleware())
 
 main_router.include_routers(
 

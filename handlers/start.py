@@ -11,6 +11,8 @@ CREATOR_ID = config.CREATOR_ID
 router = Router()
 
 
+
+
 # 🎯 UNIVERSAL START INTERFEYSI (Ham yangi yuborish, ham edit qilish uchun)
 async def send_or_edit_start_menu(target: Message | CallbackQuery, user_id: int, username: str):
     """
@@ -178,9 +180,9 @@ async def back_to_start_handler(callback: CallbackQuery):
     await send_or_edit_start_menu(callback, user_id, username)
 
 
-# 3️⃣ 🔄 OBUNANI TASDIQLASH TUGMASI BOSILGANDA (Middleware muvaffaqiyatli o'tkazgandan keyingi qadam)
+# 3️⃣ 🔄 OBUNANI TASDIQLASH TUGMASI BOSILGANDA (Deep-linkni hisobga oluvchi mukammal handler)
 @router.callback_query(F.data.startswith("check_sub"))
-async def check_sub_callback_handler(callback: CallbackQuery, session: Any):
+async def check_sub_callback_handler(callback: CallbackQuery, session: Any, state: FSMContext, user_service: UserService):
     await callback.answer("🎉 Rahmat, obuna muvaffaqiyatli tasdiqlandi!", show_alert=True)
     user_id = callback.from_user.id
     username = callback.from_user.username or "do'stim"
@@ -191,5 +193,37 @@ async def check_sub_callback_handler(callback: CallbackQuery, session: Any):
     except:
         pass
 
-    # Obunani tekshirish tugmasidan keyin toza bosh menyuni chiqarib beramiz
+    # Tugma ma'lumotini tekshiramiz (Masalan: check_sub:anime_15 bormi?)
+    data_parts = callback.data.split(":")
+    
+    if len(data_parts) > 1 and data_parts[1].startswith("anime_"):
+        # 🚀 Foydalanuvchi obunani tugatib qaytdi va unga o'zi qidirgan animeni ko'rsatamiz!
+        anime_param = data_parts[1] # "anime_15"
+        try:
+            anime_id = int(anime_param.split("_")[1])
+            
+            from services.anime_service import AnimeService
+            service = AnimeService(session=session)
+            anime = await service.get_anime(anime_id)
+            
+            if anime:
+                # 💡 Bu yerda start.py dagi o'sha ramkali daxshatli anime caption tayyorlash kodingiz keladi
+                title = anime.get("title", "Nomsiz anime")
+                caption = f"🎬 <b>{title}</b>\n\nObuna tasdiqlandi! Qismlarni tomosha qilishingiz mumkin."
+                
+                user_anime_kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="📹 Qismlarni tomosha qilish", callback_data=f"show_episodes_user:{anime_id}", style="primary")],
+                    [InlineKeyboardButton(text="⬅️ Bosh menyuga qaytish", callback_data="back_to_start", style="danger")]
+                ])
+                
+                poster_id = anime.get("poster_id")
+                if poster_id:
+                    await callback.message.answer_photo(photo=poster_id, caption=caption, reply_markup=user_anime_kb, parse_mode="HTML")
+                else:
+                    await callback.message.answer(text=caption, reply_markup=user_anime_kb, parse_mode="HTML")
+                return
+        except Exception as ex:
+            logger.error(f"❌ Check sub ichida animeni yuklashda xato: {ex}")
+
+    # Agar hech qanday deep link bo'lmasa, oddiy bosh menyuni chiqarib beramiz
     await send_or_edit_start_menu(callback.message, user_id, username)

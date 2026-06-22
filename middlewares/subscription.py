@@ -1,4 +1,3 @@
-# middlewares/subscription.py
 import asyncio
 import logging
 from typing import Any, Dict, Optional
@@ -10,7 +9,6 @@ from aiogram.exceptions import TelegramBadRequest
 from repositories.channel_repository import ChannelRepository
 from database.cache import valkey
 
-# Ikki xil logger takrorlangan edi, bittasi olib tashlandi.
 logger = logging.getLogger("CheckSubscriptionMiddleware")
 
 class CheckSubscriptionMiddleware(BaseMiddleware):
@@ -28,26 +26,26 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
         user_id = data["event_from_user"].id
         bot = data["bot"]
         
-        # "check_sub" tugmasi bosilganda biz keshni inobatga olmasdan bazani majburiy yangilaymiz
-        force_check = isinstance(event, CallbackQuery) and event.data == "check_sub"
+        # 🔥 TUZATISH: Startswith orqali argumentli check_sub'larni ham taniydigan qildik
+        is_callback = isinstance(event, CallbackQuery)
+        force_check = is_callback and event.data and event.data.startswith("check_sub")
 
         # 3. 🚀 RATE LIMIT HIMOYASI (API ni qiynamaslik uchun 15 daqiqalik kesh)
         if not force_check and valkey.is_alive:
             try:
-                # Agar user yaqinda tekshirilgan va obunasi tasdiqlangan bo'lsa, API ga bormaymiz
                 is_subbed = await valkey.get(table="sub_status", obj_id=str(user_id))
                 if is_subbed == "ok":
                     return await handler(event, data)
             except Exception as e:
                 logger.debug(f"Sub cache get error: {e}")
 
-        # 4. DbSessionMiddleware taqdim etgan xavfsiz proxy sessiyani olish
+        # 4. DbSessionMiddleware sessiyasini tekshirish
         session = data.get("session")
         if not session:
             logger.warning("⚠️ DbSessionMiddleware sessiyasi topilmadi, tekshiruv o'tkazib yuborildi.")
             return await handler(event, data)
 
-        # 5. Faol kanallarni L1/L2 kesh orqali (0ms da) yuklab olish
+        # 5. Faol kanallarni yuklab olish
         try:
             channels = await ChannelRepository.get_all_active_channels(session)
         except Exception as e:
@@ -63,16 +61,13 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
             try:
                 chat_id = int(ch["channel_id"])
                 member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
-                
                 if member.status in ["left", "kicked"]:
                     return ch
             except Exception as api_err:
                 logger.debug(f"⚠️ Telegram API xatosi (Kanal ID: {ch.get('channel_id')}): {api_err}")
-                # Tarmoq xatosi yoki bot kanalda admin bo'lmasa userni qiynamaslik uchun o'tkazamiz
                 return None
             return None
 
-        # Barcha kanallarni parallel tekshirish (Fast gather)
         results = await asyncio.gather(*(check_single(ch) for ch in channels))
         not_subscribed = [r for r in results if r is not None]
 
@@ -80,22 +75,24 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
         # 🛑 Middleware ichidagi blok: Agar obuna bo'lmagan bo'lsa:
         # ======================================================
         if not_subscribed:
-            # Agar foydalanuvchi deep link orqali kelgan bo'lsa, uni callback_data ichiga yashirib qo'yamiz!
             cb_data = "check_sub"
             if isinstance(event, Message) and event.text and "anime_" in event.text:
-                clean_param = event.text.split(" ")[1].replace(",", "")
-                cb_data = f"check_sub:{clean_param}" # Masalan: check_sub:anime_15
+                try:
+                    clean_param = event.text.split(" ")[1].replace(",", "")
+                    cb_data = f"check_sub:{clean_param}"
+                except IndexError:
+                    pass
 
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"📢 {ch['title']}", url=ch['url'])] for ch in not_subscribed
             ] + [[InlineKeyboardButton(text="🔄 Obunani tasdiqlash", callback_data=cb_data)]])
+            
             text = "⚠️ <b>Botdan to'liq foydalanish uchun quyidagi homiy kanallarga a'zo bo'ling:</b>"
             
             if isinstance(event, Message):
                 await event.answer(text=text, reply_markup=kb, parse_mode="HTML")
-            elif isinstance(event, CallbackQuery):
+            elif is_callback:
                 try:
-                    # Flicker/Miltillash oldini olish (FAQAT o'zgarsa edit qilinadi)
                     await event.message.edit_text(text=text, reply_markup=kb, parse_mode="HTML")
                 except TelegramBadRequest as e:
                     if "message is not modified" not in str(e):
@@ -103,54 +100,23 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
                 
                 await event.answer("⚠️ Hali barcha kanallarga a'zo bo'lmadingiz!", show_alert=True)
             
-            # Keshni bekor qilamiz (agar oldin obuna bo'lib, hozir chiqib ketgan bo'lsa)
             if valkey.is_alive:
                 try:
                     await valkey.invalidate(table="sub_status", obj_id=str(user_id), broadcast=False)
                 except Exception:
                     pass
 
-            return  # 🛑 Bot oqimi shu yerda uziladi, handler bajarilmaydi.
+            return  # 🛑 Oqim uziladi, foydalanuvchi obuna bo'lmaguncha o'tolmaydi.
 
         # ======================================================
         # 🟢 Agarda foydalanuvchi HAMMA kanalga obuna bo'lgan bo'lsa:
         # ======================================================
-        
-        # Bot API ni qiynamasligi uchun foydalanuvchini 15 daqiqa (900 soniya) davomida keshlaymiz
         if valkey.is_alive:
             try:
                 await valkey.set(table="sub_status", obj_id=str(user_id), data="ok", ttl=900)
             except Exception as e:
                 logger.debug(f"Sub cache set error: {e}")
 
-        # 🔥 UX-SMOOTH YECHIM: Agar foydalanuvchi "Obunani tasdiqlash" tugmasini bosgan bo'lsa
-        if force_check:
-            await event.answer("🎉 Rahmat, obuna muvaffaqiyatli tasdiqlandi!", show_alert=True)
-            
-            # 💡 Xabarni o'chirmaymiz! Uni to'g'ridan-to'g'ri Asosiy Menyoga aylantiramiz.
-            # Shunda foydalanuvchi "Obunani tasdiqlash"ni bosishi bilan silliqgina asosiy menyu ochiladi.
-            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-            
-            welcome_text = (
-                f" <b>Obuna tastiqlandi</b>\n\n"
-                
-            )
-            
-            # Botning asosiy foydalanuvchi menyusi tugmalari (Sizda qanday bo'lsa o'shanga moslang)
-            
-            
-            try:
-                # Majburiy obuna matnini silliq qilib asosiy menyuga aylantiramiz
-                await event.message.edit_text(text=welcome_text, parse_mode="HTML")
-            except Exception:
-                # Agar tahrirlashda xato bo'lsa, yangi xabar qilib yuboramiz
-                await event.message.answer(text=welcome_text,  parse_mode="HTML")
-                try:
-                    await event.message.delete()
-                except Exception:
-                    pass
-            
-            return  # 🟢 Oqim muvaffaqiyatli yakunlandi, boshqa handlerga o'tish shart emas!
-
-        # Odatiy xabar yoki callback oqimini o'z holicha davom ettirish
+        # 🔥 TUZATISH: Obuna muvaffaqiyatli bo'lsa, jarayonni to'xtatmaymiz!
+        # Uni to'g'ridan-to'g'ri `start.py` ichidagi handlerga yuboramiz. U yerda anime yoki start menyu ochiladi.
         return await handler(event, data)
