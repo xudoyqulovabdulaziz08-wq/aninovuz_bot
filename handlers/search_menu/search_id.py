@@ -38,7 +38,7 @@ async def search_by_id(callback: CallbackQuery, state: FSMContext): # state qo's
     
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="search_menu")] # style="danger" olib tashlandi (inline buttonda style bo'lmaydi)
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="search_menu", style="danger")] 
         ]
     )
     
@@ -69,12 +69,11 @@ async def search_by_id(callback: CallbackQuery, state: FSMContext): # state qo's
 async def process_anime_id_search(message: Message, state: FSMContext, session: Any):
     raw_text = message.text.strip().replace("#", "")
     
-    # 🌟 "Qidirilmoqda..." xabarini o'zgaruvchiga saqlaymiz
-    waiting_msg = await message.answer("🔍 Qidirilmoqda...") 
+    # 🌟 "🔍 Yuborilmoqda..." xabari yuboriladi
+    waiting_msg = await message.answer("🔍 Yuborilmoqda...") 
     
     if not raw_text.isdigit():
         await message.answer("⚠️ Iltimos, faqat raqamlardan iborat ID kiriting!")
-        # Agar xato bo'lsa, "Qidirilmoqda..." xabarini o'chirib tashlaymiz
         await waiting_msg.delete()
         return
 
@@ -85,11 +84,30 @@ async def process_anime_id_search(message: Message, state: FSMContext, session: 
     anime = await anime_service.get_anime(anime_id)
 
     if not anime:
-        await message.answer(f"🔍 <b>#{anime_id}</b> kodli anime topilmadi!\nQayta tekshirib ko'ring.")
-        await waiting_msg.delete()
+        # 1. Ham "Yuborilmoqda..." xabarini, ham foydalanuvchi yuborgan ID matnini o'chirib tashlaymiz
+        try:
+            await waiting_msg.delete()
+            await message.delete()
+        except Exception as e:
+            logger.debug(f"Xabarlarni o'chirishda xatolik: {e}")
+
+        # 2. Yangitdan toza xabar ko'rinishida tugmalarni yuboramiz (Style saqlangan)
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🔁 Qayta urinish", callback_data="search_by_id", style="success")],
+                [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="search_menu", style="danger")]
+            ]
+        )
+        
+        await message.answer(
+            text=f"❌ <b>#{anime_id}</b> kodli anime topilmadi!\n\nQayta tekshirib ko'ring yoki boshqa ID kiriting.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
         return
 
-    # 🚀 Endi universal funksiyaga o'zimizning `message`ni emas, `waiting_msg`ni berib yuboramiz!
+    # 🚀 Anime topilsa, universal funksiyaga o'chib ketishi uchun waiting_msg berib yuboriladi
     await send_anime_card(waiting_msg, anime, session)
     
+    # Foydalanuvchi yuborgan ID raqam chatda chiroyli ko'rinib turishi uchun uni o'chirmaymiz
     await state.clear()

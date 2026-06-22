@@ -89,7 +89,7 @@ async def publish_anime_to_channels_handler(callback: CallbackQuery, session: An
             InlineKeyboardButton(
                 text="🎬 Animeni ko‘rish", 
                 # TO'G'RILANDI: Oxiridagi ortiqcha vergul olib tashlandi
-                url=f"https://t.me/{bot_username}?start=anime_{anime_id_val}"
+                url=f"https://t.me/{bot_username}?start=anime_{anime_id_val}", style="primary"
             )
         ]
     ])
