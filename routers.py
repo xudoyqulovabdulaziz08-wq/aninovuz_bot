@@ -1,5 +1,5 @@
 from aiogram import Router
-from middlewares.check_sub_middleware import CheckSubscriptionMiddleware
+from middlewares.subscription import CheckSubscriptionMiddleware
 from handlers import(
     start,
     search,
