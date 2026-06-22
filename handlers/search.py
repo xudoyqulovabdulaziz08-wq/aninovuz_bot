@@ -56,46 +56,6 @@ async def search_menu(callback: CallbackQuery, state: FSMContext):
 
 
 
-@router.callback_query(lambda c: c.data == "search_by_name")
-async def search_by_name(callback: CallbackQuery):
-    await callback.answer()
-    
-    # O'sha asosiy rasmingiz ID si (barcha qidiruvlarda bir xil tursa interfeys silliq chiqadi)
-    search_image_file_id = "AgACAgIAAxkBAAI8pmo2wwmGj_SoELEjURiyUyabzhwoAAI5GWsbZ6WxSUf3FNSMy6ajAQADAgADdwADPAQ"
-    
-    text = (
-        "╔═════════ 🔍 ═════════╗\n"
-        "   <b>NOMI BO'YICHA QIDIRISH</b>\n"
-        "╚═════════ 🔍 ═════════╝\n\n"
-        "✍️ Iltimos, qidirayotgan anime nomini  yozib yuboring.\n\n"
-        "⚠️ <b>Eslatma:</b> Nomni qanchalik to'g'ri va aniq yozsangiz, uni topish shunchalik oson bo'ladi!"
-    )
-    
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            # Orqaga bosganda boyagi qidiruv bosh menyusiga ('search_menu') qaytadi
-            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="search_menu", style="danger")]
-        ]
-    )
-    
-    try:
-        await callback.message.edit_media(
-            media=InputMediaPhoto(
-                media=search_image_file_id,
-                caption=text,
-                parse_mode="HTML"
-            ),
-            reply_markup=kb
-        )
-    except TelegramBadRequest as e:
-        if "message is not modified" in str(e).lower():
-        # Agar xabar allaqachon o'zgargan bo'lsa, xato bermaymiz, shunchaki o'tkazib yuboramiz
-            pass
-        else:
-            # Boshqa jiddiy xatolik bo'lsa logga yozamiz
-            logger.error(f"❌ Kutilmagan xatolik: {e}")
-    except Exception as e:
-        logger.error(f"❌ Tizimda xatolik yuz berdi: {e}")
 
 
 

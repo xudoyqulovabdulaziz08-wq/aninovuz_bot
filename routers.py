@@ -78,6 +78,7 @@ main_router.include_routers(
 
 
     search.router,
-    search_id.router
+    search_id.router,
+    search_name.router
 
 )
