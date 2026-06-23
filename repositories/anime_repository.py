@@ -47,6 +47,28 @@ class AnimeRepository:
         ] if hasattr(anime, "episodes") else []
         
         return data
+    
+
+    # ================= GET EPISODES BY ANIME ID =================
+    @staticmethod
+    async def get_episodes_by_anime_id(session: Any, anime_id: int) -> List[Dict]:
+        """
+        🎬 Bazadan ma'lum bir animening barcha qismlarini 
+        qism raqami bo'yicha tartiblangan holatda tortib beradi.
+        """
+        real_session = await AnimeRepository._prepare_session(session)
+
+        stmt = (
+            select(Episode)
+            .where(Episode.anime_id == anime_id)
+            .order_by(Episode.episode)  # Qismlar ketma-ketligi (1, 2, 3...) bu buzilmasligi shart!
+        )
+
+        result = await real_session.execute(stmt)
+        episodes_list = result.scalars().all()
+
+        # Har bir epizod obyektini to_dict() orqali dict formatiga o'giramiz
+        return [ep.to_dict() for ep in episodes_list]
 
     # ================= LIST =================
     @staticmethod

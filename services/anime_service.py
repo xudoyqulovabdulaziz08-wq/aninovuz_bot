@@ -188,6 +188,7 @@ class AnimeService:
                 # Keshni invalidatsiya qilamiz, shunda yangi video pleerda darhol ko'rinadi
                 await self.cache.invalidate("anime", anime_id, broadcast=True)
                 await self.cache.invalidate("anime", "all", broadcast=True)
+                await self.cache.invalidate("anime_episodes", anime_id, broadcast=True)
                 logger.info(f"🔄 Episode file updated + cache invalidated: Anime {anime_id}, Ep {episode_num}")
 
             return ok
@@ -223,3 +224,32 @@ class AnimeService:
         if not genre_ids:
             return []
         return await self.repo.get_by_genres(self.session, genre_ids)
+    
+
+
+
+    # ==================================================
+    # 📹 GET ANIME EPISODES CACHE (CACHE-FIRST)
+    # ==================================================
+    async def get_anime_episodes_cache(self, anime_id: int) -> List[Dict]:
+        """
+        🚀 Anime qismlarini keshdan (Cache-First) tezkor yuklab berish funksiyasi.
+        Keshda bo'lmasa DBdan oladi va 1 soatga (ttl=3600) saqlaydi.
+        """
+        # 1. Avval kesh menedjerdan ushbu animening qismlarini so'raymiz
+        cached_episodes = await self.cache.get("anime_episodes", anime_id)
+        if cached_episodes is not None:
+            logger.debug(f"🎯 CACHE HIT: anime_episodes loaded from cache for anime_id={anime_id}")
+            return cached_episodes
+
+        # 2. Agar keshda bo'lmasa, sessiyani tekshirib repozitoriyga yuzlanamiz
+        if hasattr(self.session, "_ensure_session"):
+            await self.session._ensure_session()
+
+        episodes = await self.repo.get_episodes_by_anime_id(self.session, anime_id)
+        
+        # 3. Kelgan ma'lumotni 1 soatga (3600 soniya) keshga yozib qo'yamiz
+        await self.cache.set("anime_episodes", anime_id, episodes, ttl=3600)
+        logger.info(f"💾 CACHE SET: Anime episodes cached for anime_id={anime_id} (TTL: 1h)")
+        
+        return episodes
