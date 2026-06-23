@@ -51,17 +51,18 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
     current_ep_num = current_episode["episode"] # Agar so'ralgan qism topilmasa birinchisiga qaytadi
     
     video_file_id = current_episode.get("file_id") or current_episode.get("video_file_id")
-    poster_id = anime.get("poster_id") # Thumbnail uchun asosiy anime poster ID-si
+    ANINOV_PLAYER_BRAND_THUMBNAIL = "AgACAgIAAxkBAAFNOU9qOrgIQz1ey-Z7MkCzZQvkTr9qSwACgxprG-FJ0EmNVQNo5jBeFwEAAwIAA3cAAzwE"
 
     # 4. Premium UX dizayn qatlamidagi matn (Caption)
     caption = (
+        f"<a href='https://t.me/share/url?url={ANINOV_PLAYER_BRAND_THUMBNAIL}'>&#4448;</a>" # 🌟 Yashirin rasm hiylasi
         f"╔══════════════════════╗\n"
         f"   🎬 <b>{anime['title']}</b>\n"
         f"╚══════════════════════╝\n\n"
         f"📌 <b>Joriy tomosha:</b>\n"
         f"╔══════════════════════╗\n"
         f"├ 📹 Qism: <b>{current_ep_num}-qism</b>\n"
-        f"├ 🌐 Platforma: <a href='https://t.me/Aninovuz_Bot'>AniNowuz</a>\n"
+        f"├ 🌐 Platforma: <a href='https://t.me/Aninovuz_Bot'>AniNovuz</a>\n"
         f"╚══════════════════════╝\n\n"
         f"📢 Kanal @AniNowuz  "
     )
@@ -117,7 +118,7 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
     # Oddiy foydalanuvchilarga protect_content=True, VIP/Adminga False bo'ladi!
     media_player = InputMediaVideo(
         media=video_file_id,
-        thumbnail=poster_id,  # Rasm muqova sifatida ishlatiladi (Thumbnail hiylasi)
+          # Rasm muqova sifatida ishlatiladi (Thumbnail hiylasi)
         caption=caption,
         parse_mode="HTML"
     )
