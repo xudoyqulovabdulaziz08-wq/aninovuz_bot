@@ -60,8 +60,9 @@ async def search_by_id(callback: CallbackQuery, state: FSMContext): # state qo's
         logger.error(f"❌ Tizimda xatolik yuz berdi: {e}")
 
     # 🚀 MANA SHU QATOR QO'SHILDI: Bot foydalanuvchidan ID kelishini kutadi
+    await state.update_data(last_search_menu_id=callback.message.message_id)
     await state.set_state(SearchStates.waiting_for_anime_id)
-
+    
 
 
 
@@ -69,29 +70,47 @@ async def search_by_id(callback: CallbackQuery, state: FSMContext): # state qo's
 async def process_anime_id_search(message: Message, state: FSMContext, session: Any):
     raw_text = message.text.strip().replace("#", "")
     
-    # 🌟 "🔍 Yuborilmoqda..." xabari yuboriladi
+    # 🌟 "🔍 So'rov bajarilmoqda..." xabari yuboriladi (Bot qotib qolmasligi uchun)
     waiting_msg = await message.answer("🔍 So'rov bajarilmoqda...") 
     
+    # Raqam ekanligini tekshirish
     if not raw_text.isdigit():
+        try:
+            await waiting_msg.delete()
+            await message.delete()
+        except:
+            pass
+            
         await message.answer("⚠️ Iltimos, faqat raqamlardan iborat ID kiriting!")
-        await waiting_msg.delete()
         return
 
     anime_id = int(raw_text)
     
+    # 1. Baza/Keshdan animeni qidiramiz
     from services.anime_service import AnimeService
     anime_service = AnimeService(session=session)
     anime = await anime_service.get_anime(anime_id)
 
-    if not anime:
-        # 1. Ham "Yuborilmoqda..." xabarini, ham foydalanuvchi yuborgan ID matnini o'chirib tashlaymiz
-        try:
-            await waiting_msg.delete()
-            await message.delete()
-        except Exception as e:
-            logger.debug(f"Xabarlarni o'chirishda xatolik: {e}")
+    # Xotiradan eski qidiruv menyusi ID-sini olamiz
+    user_data = await state.get_data()
+    last_menu_id = user_data.get("last_search_menu_id")
 
-        # 2. Yangitdan toza xabar ko'rinishida tugmalarni yuboramiz (Style saqlangan)
+    # 🌟 ANIME TOPILMASA: Chatni tozalab, yangi toza xato xabarini chiqaramiz
+    if not anime:
+        try:
+            # 1. Vaqtinchalik "🔍 So'rov bajarilmoqda..." xabarini o'chiramiz
+            await waiting_msg.delete()
+            
+            # 2. Foydalanuvchi yuborgan xato ID matnini o'chiramiz
+            await message.delete()
+            
+            # 3. Orqada qolib ketgan "ID BO'YICHA QIDIRISH" rasmli interfeysini o'chiramiz
+            if last_menu_id:
+                await message.bot.delete_message(chat_id=message.chat.id, message_id=last_menu_id)
+        except Exception as e:
+            logger.warning(f"⚠️ ID qidiruvida xabarlarni tozalashda xatolik: {e}")
+
+        # Yangitdan toza xabar ko'rinishida xatolik oynasini yuboramiz
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="🔁 Qayta urinish", callback_data="search_by_id", style="success")],
@@ -106,8 +125,20 @@ async def process_anime_id_search(message: Message, state: FSMContext, session: 
         )
         return
 
-    # 🚀 Anime topilsa, universal funksiyaga o'chib ketishi uchun waiting_msg berib yuboriladi
+    # 🌟 ANIME TOPILSA: Tozalash mantig'ini yurgizib, kartani yuboramiz
+    try:
+        # Foydalanuvchi yozgan ID xabarini chatdan o'chiramiz (Netflix'da ortiqcha xabarlar turmaydi)
+        await message.delete()
+        
+        # Eski "ID BO'YICHA QIDIRISH" rasmli interfeysini ham o'chiramiz
+        if last_menu_id:
+            await message.bot.delete_message(chat_id=message.chat.id, message_id=last_menu_id)
+    except Exception as e:
+        logger.warning(f"⚠️ Anime topilganda eski xabarlarni o'chirishda xatolik: {e}")
+
+    # 🚀 Universal funksiyaga o'chib ketishi uchun waiting_msg berib yuboriladi
+    # send_anime_card funksiyasi o'sha vaqtinchalik xabarni o'chirib, o'rniga daxshatli posterni joylaydi!
     await send_anime_card(waiting_msg, anime, session)
     
-    # Foydalanuvchi yuborgan ID raqam chatda chiroyli ko'rinib turishi uchun uni o'chirmaymiz
+    # Qidiruv muvaffaqiyatli tugagani uchun holatni tozalaymiz
     await state.clear()
