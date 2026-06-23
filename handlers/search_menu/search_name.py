@@ -38,7 +38,7 @@ class SearchStates(StatesGroup):
 
 
 @router.callback_query(lambda c: c.data == "search_by_name")
-async def search_by_name(callback: CallbackQuery, state: FSMContext): # state argumenti qo'shildi
+async def search_by_name(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     
     search_image_file_id = "AgACAgIAAxkBAAI8pmo2wwmGj_SoELEjURiyUyabzhwoAAI5GWsbZ6WxSUf3FNSMy6ajAQADAgADdwADPAQ"
@@ -58,6 +58,7 @@ async def search_by_name(callback: CallbackQuery, state: FSMContext): # state ar
     )
     
     try:
+        # Eski xabarni yangi rasm va matnga silliqqina o'zgartiramiz
         await callback.message.edit_media(
             media=InputMediaPhoto(
                 media=search_image_file_id,
@@ -74,13 +75,9 @@ async def search_by_name(callback: CallbackQuery, state: FSMContext): # state ar
     except Exception as e:
         logger.error(f"❌ Tizimda xatolik yuz berdi: {e}")
 
-    # 🚀 MANA SHU QATOR QO'SHILDI: Bot foydalanuvchidan nom kelishini kutadi
+    # 🚀 UX INOVATSIYA: Aynan shu tahrirlangan xabar ID-sini va holatni saqlaymiz!
+    await state.update_data(last_search_menu_id=callback.message.message_id)
     await state.set_state(SearchStates.waiting_for_anime_name)
-
-
-
-
-
 
 
 
@@ -97,18 +94,28 @@ async def process_anime_name_search(message: Message, state: FSMContext, session
     anime_service = AnimeService(session=session)
     search_map = await anime_service.get_search_map()
     
-    # 2. Foydalanuvchi yozgan so'z qatnashgan barcha animelarni qidiramiz (Index bo'yicha)
+    # 2. Foydalanuvchi yozgan so'z qatnashgan barcha animelarni qidiramiz
     found_animes = []
     for anime_id, anime_title in search_map.items():
         if search_query in anime_title.lower():
             found_animes.append((anime_id, anime_title))
             
-    # Xabarlarni o'chirib chatni tozalaymiz
+    # 🌟 UX TOZALASH: Barcha eski interfeys va matnlarni chatdan tozalaymiz
+    user_data = await state.get_data()
+    last_menu_id = user_data.get("last_search_menu_id")
+    
     try:
+        # Vaqtinchalik "🔍 Qidirilmoqda..." xabarini o'chiramiz
         await waiting_msg.delete()
+        
+        # Foydalanuvchi yozgan matnli xabarni o'chiramiz
         await message.delete()
-    except:
-        pass
+        
+        # Orqada qolib ketayotgan "NOMI BO'YICHA QIDIRISH" rasmli interfeysini o'chiramiz
+        if last_menu_id:
+            await message.bot.delete_message(chat_id=message.chat.id, message_id=last_menu_id)
+    except Exception as e:
+        logger.warning(f"⚠️ Xabarlarni tozalashda xatolik (ehtimol allaqachon o'chgan): {e}")
 
     # 3. Agar hech qanday anime topilmasa
     if not found_animes:
@@ -127,9 +134,11 @@ async def process_anime_name_search(message: Message, state: FSMContext, session
 
     # 4. Agar anime(lar) topilsa, ularni tugma ko'rinishida generatsiya qilamiz
     buttons = []
-    for anime_id, anime_title in found_animes[:10]: # Maksimal 10 ta natija chiqadi (Telegram cheklovi u/n)
-        # Deep-link yoki inline bosilganda o'sha anime kartasini ochadigan callback_data
-        buttons.append([InlineKeyboardButton(text=f"🎬 {anime_title}", callback_data=f"view_anime_detals_{anime_id}")])
+    for anime_id, anime_title in found_animes[:15]: # Premium UX uchun maksimal 15 ta natija
+        buttons.append([InlineKeyboardButton(
+            text=f"🎬 {anime_title}", 
+            callback_data=f"view_anime_detals_{anime_id}" # Biz boya yozgan daxshatli pleyer pultiga ulanadi
+        )])
         
     # Pastiga bosh menyuga qaytish tugmasi
     buttons.append([InlineKeyboardButton(text="⬅️ Qidiruv menyusi", callback_data="search_menu", style="danger")])

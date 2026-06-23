@@ -9,8 +9,8 @@ from alembic import context
 # =========================================================================
 # 1. MODELLARNI IMPORT QILISH (Alembic ko'rishi uchun majburiy)
 # =========================================================================
-from database.models import Base  # Sizning modelingiz joylashgan to'g'ri path
-
+from database.models import Base, DBUser, Anime, Episode, Genre, Channel, OutboxEvent, setup_outbox_listeners # Sizning modelingiz joylashgan to'g'ri path
+setup_outbox_listeners([DBUser, Anime, Episode, Genre, Channel])
 # Alembic Config obyekti
 config = context.config
 
@@ -22,6 +22,7 @@ if config.config_file_name is not None:
 # 2. METADATA-NI ULYAMIZ (None o'rniga Base.metadata bo'lishi shart)
 # =========================================================================
 target_metadata = Base.metadata
+
 
 
 def run_migrations_offline() -> None:
