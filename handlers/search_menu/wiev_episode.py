@@ -50,7 +50,7 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
     current_episode = next((e for e in episodes if e["episode"] == current_ep_num), episodes[0])
     current_ep_num = current_episode["episode"] # Agar so'ralgan qism topilmasa birinchisiga qaytadi
     
-    video_file_id = current_episode["video_file_id"]
+    video_file_id = current_episode.get("file_id") or current_episode.get("video_file_id")
     poster_id = anime.get("poster_id") # Thumbnail uchun asosiy anime poster ID-si
 
     # 4. Premium UX dizayn qatlamidagi matn (Caption)
