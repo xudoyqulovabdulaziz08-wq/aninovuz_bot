@@ -30,16 +30,31 @@ async def send_anime_card(message: Message, anime: dict, session: Any) -> bool:
     languages = anime.get("languages", [])
     languages_str = ", ".join(languages) if languages else "Mavjud emas"
 
+    # 🔥 CALLBACK VA ODDIY MESSAGE ID'SINI SUG'URTALASH
+    # Agar xabar botdan kelgan bo'lsa (callback holati), chat_id shaxsiy foydalanuvchi IDsi bo'ladi.
+    actual_user_id = message.from_user.id if message.from_user and not message.from_user.is_bot else message.chat.id
+
     # 🛡️ VIP/Admin Dynamic statusni tekshirish qatlami
     user_service = UserService(session=session)
-    user_data = await user_service.get_user(message.from_user.id)
+    user_data = await user_service.get_user(actual_user_id)
     
-    # Siz yozgan mantiq va CREATOR_ID o'zgarishsiz saqlandi
-    is_vip_or_admin = user_data and (
-        user_data.get("is_vip", False) or 
-        user_data.get("status") == "admin" or 
-        (message.from_user.id == CREATOR_ID if 'CREATOR_ID' in globals() else False)
-    )
+    # 👑 Global Creator ID tekshiruvini aniq va xavfsiz holatga keltiramiz
+    try:
+        from config import config
+        c_id = getattr(config, "CREATOR_ID", None)
+    except:
+        c_id = globals().get("CREATOR_ID", None)
+
+    is_vip_or_admin = False
+    if user_data:
+        is_vip_or_admin = (
+            user_data.get("is_vip", False) or 
+            user_data.get("status") == "admin" or 
+            actual_user_id == c_id
+        )
+    else:
+        # Agar foydalanuvchi bazada hali yo'q bo'lsa ham Creator bo'lsa ruxsat berish
+        is_vip_or_admin = actual_user_id == c_id
 
     # Janrlarni yuklash
     genres_str = "Mavjud emas"
@@ -93,7 +108,7 @@ async def send_anime_card(message: Message, anime: dict, session: Any) -> bool:
                 caption=caption, 
                 reply_markup=user_anime_kb, 
                 parse_mode="HTML",
-                protect_content=not is_vip_or_admin  # 🔥 Oddiy foydalanuvchida daxshat blokirovka ishlaydi!
+                protect_content=not is_vip_or_admin  # 🔥 Creator va VIP'larda blokirovka bo'lmaydi!
             )
             return True
         except Exception:
@@ -103,7 +118,7 @@ async def send_anime_card(message: Message, anime: dict, session: Any) -> bool:
                     caption=caption, 
                     reply_markup=user_anime_kb, 
                     parse_mode="HTML",
-                    protect_content=not is_vip_or_admin  # 🔥 Videoda ham xavfsizlik muhrlanadi!
+                    protect_content=not is_vip_or_admin  
                 )
                 return True
             except Exception:
