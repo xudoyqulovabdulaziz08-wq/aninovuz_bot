@@ -223,7 +223,7 @@ async def process_download_all_vip(callback: CallbackQuery, session: Any):
     for ep in sorted_episodes:
         # 🔥 DIQQAT: Har xil nomlanish formatlarini tekshiramiz (Baza yoki Kesh mosligi uchun)
         video_file_id = ep.get("video_file_id") or ep.get("video_id") or ep.get("file_id")
-        ep_num = ep.get("episode_number") or ep.get("number") or "?"
+        ep_num = ep.get("episode") or ep.get("episode_number") or ep.get("number") or "?"
         
         # Agar dict ichida video ID umuman topilmasa, log yozamiz va tekshiramiz
         if not video_file_id:
