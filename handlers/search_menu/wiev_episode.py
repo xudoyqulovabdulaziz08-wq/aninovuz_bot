@@ -90,6 +90,7 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
     page_episodes = episodes[start_idx:end_idx]
     
     # Qismlar tugmalarini 4 tadan qatorga joylash mantig'i
+    
     row = []
     for ep in page_episodes:
         ep_num = ep["episode"]
