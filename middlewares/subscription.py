@@ -6,7 +6,6 @@ from aiogram import BaseMiddleware
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from aiogram.exceptions import TelegramBadRequest
 
-from repositories.channel_repository import ChannelRepository
 from database.cache import valkey
 from services.channel_service import ChannelService
 logger = logging.getLogger("CheckSubscriptionMiddleware")
@@ -26,15 +25,16 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
         user_id = data["event_from_user"].id
         bot = data["bot"]
         
-        # 🔥 TUZATISH: Startswith orqali argumentli check_sub'larni ham taniydigan qildik
         is_callback = isinstance(event, CallbackQuery)
+        # Foydalanuvchi aynan tasdiqlash tugmasini bosgandagina real-time tekshirishga majburlaymiz
         force_check = is_callback and event.data and event.data.startswith("check_sub")
 
-        # 3. 🚀 RATE LIMIT HIMOYASI (API ni qiynamaslik uchun 15 daqiqalik kesh)
+        # 3. 🚀 RATE LIMIT HIMOYASI (Kesh vaqtini 15 daqiqadan 45 soniyaga tushiramiz!)
         if not force_check and valkey.is_alive:
             try:
                 is_subbed = await valkey.get(table="sub_status", obj_id=str(user_id))
                 if is_subbed == "ok":
+                    # 🔥 Kesh hali eskirgani yo'q va foydalanuvchi o'tkazib yuboriladi
                     return await handler(event, data)
             except Exception as e:
                 logger.debug(f"Sub cache get error: {e}")
@@ -47,12 +47,8 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
 
         # 5. Service qatlamini yaratamiz va kesh-aware funksiyani chaqiramiz
         try:
-            # ChannelService obyektini sessiya bilan initsializatsiya qilamiz
             channel_service = ChannelService(session=session)
-            
-            # Kesh va tranzaksiyadan xabardor mukammal funksiyangizni chaqiramiz:
             channels = await channel_service.get_active_channels()
-            
         except Exception as e:
             logger.error(f"🚨 Middleware kanallarni olishda xato: {e}")
             return await handler(event, data)
@@ -94,34 +90,46 @@ class CheckSubscriptionMiddleware(BaseMiddleware):
             
             text = "⚠️ <b>Botdan to'liq foydalanish uchun quyidagi homiy kanallarga a'zo bo'ling:</b>"
             
+            # 🛡️ Agar foydalanuvchi kanaldan chiqib ketgan bo'lsa va bot ichida tasdiqlash tugmasidan boshqa
+            # har qanday callback (pleer, menyu va h.k.) ni bossa, uning keshini tozalab, pultni majburiy obunaga almashtiramiz!
             if isinstance(event, Message):
                 await event.answer(text=text, reply_markup=kb, parse_mode="HTML")
             elif is_callback:
+                if force_check:
+                    # Agar tasdiqlash tugmasini bosgan bo'lsa-yu hali a'zo bo'lmagan bo'lsa Alert beramiz
+                    await event.answer("⚠️ Hali barcha kanallarga a'zo bo'lmadingiz!", show_alert=True)
+                else:
+                    # Agar boshqa tugmani bosgan paytda chiqib ketgani aniqlansa
+                    await event.answer("🚨 Siz homiy kanaldan chiqib ketgansiz! Obuna qayta tekshirildi.", show_alert=True)
+                
                 try:
                     await event.message.edit_text(text=text, reply_markup=kb, parse_mode="HTML")
                 except TelegramBadRequest as e:
                     if "message is not modified" not in str(e):
+                        try:
+                            await event.message.delete()
+                        except:
+                            pass
                         await event.message.answer(text=text, reply_markup=kb, parse_mode="HTML")
-                
-                await event.answer("⚠️ Hali barcha kanallarga a'zo bo'lmadingiz!", show_alert=True)
             
+            # Foydalanuvchi kanaldan chiqib ketgani aniq bo'ldimi, keshni majburiy o'chiramiz!
             if valkey.is_alive:
                 try:
                     await valkey.invalidate(table="sub_status", obj_id=str(user_id), broadcast=False)
                 except Exception:
                     pass
 
-            return  # 🛑 Oqim uziladi, foydalanuvchi obuna bo'lmaguncha o'tolmaydi.
+            return  # 🛑 Oqim uziladi, foydalanuvchi o'tolmaydi.
 
         # ======================================================
         # 🟢 Agarda foydalanuvchi HAMMA kanalga obuna bo'lgan bo'lsa:
         # ======================================================
         if valkey.is_alive:
             try:
-                await valkey.set(table="sub_status", obj_id=str(user_id), data="ok", ttl=900)
+                # 🔥 TTL 900 (15 daqiqa) dan 45 soniyaga tushirildi!
+                # Foydalanuvchi kanaldan chiqsa, ko'pi bilan 45 soniya botni ishlata oladi xolos!
+                await valkey.set(table="sub_status", obj_id=str(user_id), data="ok", ttl=45)
             except Exception as e:
                 logger.debug(f"Sub cache set error: {e}")
 
-        # 🔥 TUZATISH: Obuna muvaffaqiyatli bo'lsa, jarayonni to'xtatmaymiz!
-        # Uni to'g'ridan-to'g'ri `start.py` ichidagi handlerga yuboramiz. U yerda anime yoki start menyu ochiladi.
         return await handler(event, data)
