@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaVideo
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaVideo, BufferedInputFile
 from aiogram.exceptions import TelegramBadRequest
 
 from services.anime_service import AnimeService
@@ -19,7 +19,6 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
     await callback.answer()
     
     # 1. Kelgan callback ma'lumotlarini ajratib olamiz
-    # Formatlar: "show_episodes_user:anime_id" yoki "play_ep_page:anime_id:current_episode:page"
     data_parts = callback.data.split(":")
     
     if data_parts[0] == "show_episodes_user":
@@ -45,7 +44,7 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
         return
 
     # Foydalanuvchi statusi (is_vip dynamic property orqali tekshiriladi)
-    is_vip_or_admin = user.get("is_vip", False) or user.get("status") == "admin" or CREATOR_ID
+    is_vip_or_admin = user.get("is_vip", False) or user.get("status") == "admin" or (callback.from_user.id == CREATOR_ID if 'CREATOR_ID' in globals() else False)
 
     # 3. Joriy ko'rilayotgan epizod obyektini topamiz
     current_episode = next((e for e in episodes if e["episode"] == current_ep_num), episodes[0])
@@ -54,9 +53,8 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
     video_file_id = current_episode.get("file_id") or current_episode.get("video_file_id")
     ANINOV_PLAYER_BRAND_THUMBNAIL = "AgACAgIAAxkBAAFNOU9qOrgIQz1ey-Z7MkCzZQvkTr9qSwACgxprG-FJ0EmNVQNo5jBeFwEAAwIAA3cAAzwE"
 
-    # 4. Premium UX dizayn qatlamidagi matn (Caption)
+    # 4. Premium UX dizayn qatlamidagi matn (Caption) - Yashirin havola mutlaqo olib tashlandi, ramka buzilmaydi
     caption = (
-        f"<a href='https://t.me/share/url?url={ANINOV_PLAYER_BRAND_THUMBNAIL}'>&#4448;</a>" # 🌟 Yashirin rasm hiylasi
         f"╔══════════════════════╗\n"
         f"   🎬 <b>{anime['title']}</b>\n"
         f"╚══════════════════════╝\n\n"
@@ -65,7 +63,7 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
         f"├ 📹 Qism: <b>{current_ep_num}-qism</b>\n"
         f"├ 🌐 Platforma: <a href='https://t.me/Aninovuz_Bot'>AniNovuz</a>\n"
         f"╚══════════════════════╝\n\n"
-        f"📢 Kanal @AniNowuz  "
+        f"📢 Kanal @AniNowuz"
     )
 
     # 5. Pleyer tugmalari (Pult) arxitekturasini quramiz
@@ -81,7 +79,6 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
     for ep in page_episodes:
         ep_num = ep["episode"]
         if ep_num == current_ep_num:
-            # Aktiv ko'rilayotgan qism yashil rangda va [] qavs ichida bo'ladi
             row.append(InlineKeyboardButton(text=f"[ {ep_num} ]", callback_data="noop", style="success"))
         else:
             row.append(InlineKeyboardButton(
@@ -110,49 +107,49 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
     if is_vip_or_admin:
         buttons.append([InlineKeyboardButton(text="📥 Barcha qismlarni yuklab olish (VIP)", callback_data=f"download_all_vip:{anime_id}")])
     
-    # Orqaga qaytish tugmasi (Asosiy anime kartasiga qaytaradi)
+    # Orqaga qaytish tugmasi
     buttons.append([InlineKeyboardButton(text="⬅️ Anime kartasiga qaytish", callback_data=f"user_g_view_{anime_id}", style="danger")])
     
     player_kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    # 6. SILLIQ EDIT MEDIA MANTIQI (NETFLIX EFFECT)
-    # Oddiy foydalanuvchilarga protect_content=True, VIP/Adminga False bo'ladi!
+    # 6. SILLIQ EDIT MEDIA MANTIQI (NETFLIX EFFECT) - 1-YO'L IMPLEMENTATSIYASI
+    # 🌟 String formatidagi file_id ni Pydantic va Aiogram validatorlaridan o'tkazish uchun virtual fayl ko'rinishiga keltiramiz
+    fake_thumbnail = BufferedInputFile(
+        file_id_or_bytes=ANINOV_PLAYER_BRAND_THUMBNAIL.encode('utf-8'),
+        filename="brand_thumb.jpg"
+    )
+
     media_player = InputMediaVideo(
         media=video_file_id,
-          # Rasm muqova sifatida ishlatiladi (Thumbnail hiylasi)
+        thumbnail=fake_thumbnail,  # 🔥 Mana bu yer Pydantic validation xatosini to'liq yo'qotadi va rasm barqaror chiqadi!
         caption=caption,
         parse_mode="HTML"
     )
 
     try:
-        # Eski xabarni o'chirmasdan turib joyida pleyerni va cheklovni yangilaymiz
+        # Xabar edit_media bo'lganda Telegram oldingi xabardagi (anime_card dagi) protect_content holatini avtomatik saqlab qoladi
         await callback.message.edit_media(
             media=media_player,
             reply_markup=player_kb
         )
         
-        # Telegram xabarni tahrirlayotganda protect_contentni o'zgartirishga ba'zan ruxsat bermaydi, 
-        # shuning uchun xabarning joriy holatiga qarab xavfsiz moslashtiramiz.
-        
-
     except TelegramBadRequest as e:
         error_msg = str(e).lower()
         if "message is not modified" in error_msg:
             pass
         elif "message to edit not found" in error_msg or "cannot edit" in error_msg:
-            # Agar edit_media qilish ilojisi bo'lmasa (masalan eski xabar butunlay matnli bo'lsa), 
-            # eski xabarni o'chirib, yangidan video pleyer qilib yuboramiz.
+            # Agar edit qilish imkoni bo'lmasa, eski xabarni o'chirib yangidan barqaror video qilib yuboramiz
             try:
                 await callback.message.delete()
             except:
                 pass
             await callback.message.answer_video(
                 video=video_file_id,
-                
+                thumbnail=ANINOV_PLAYER_BRAND_THUMBNAIL, # answer_video ichida string to'g'ridan-to'g'ri ishlaydi
                 caption=caption,
                 reply_markup=player_kb,
                 parse_mode="HTML",
-                
+                protect_content=not is_vip_or_admin  # Yangi yuborilganda status bo'yicha qulflanadi
             )
         else:
             logger.error(f"❌ Pleyer tahrirlanishida kutilmagan xato: {e}")
