@@ -166,3 +166,74 @@ async def process_anime_streaming_player(callback: CallbackQuery, session: Any):
             )
         else:
             logger.error(f"❌ Pleyer tahrirlanishida kutilmagan xato: {e}")
+
+
+
+
+
+
+
+
+
+@router.callback_query(F.data.startswith("download_all_vip:"))
+async def process_download_all_vip(callback: CallbackQuery, session: Any):
+    # 1. Callback datadan anime_id ni ajratib olamiz
+    try:
+        anime_id = int(callback.data.split(":")[1])
+    except (IndexError, ValueError):
+        await callback.answer("🚨 Noto'g'ri so'rov!", show_alert=True)
+        return
+
+    # 2. 🗑 TEPADAGI PLEER XABARINI DARHOL O'CHIRAMIZ
+    # process_anime_streaming_player xabarini butunlay tozalash
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.debug(f"Pleer xabarini o'chirishda xato (balki allaqachon o'chirilgan): {e}")
+
+    # 3. Yuklash boshlangani haqida qisqa ogohlantirish (Alert emas, pastki notification)
+    await callback.answer("📥 Barcha qismlar yuklanmoqda, kuting...")
+
+    # 4. Anime xizmatini ishga tushirib, barcha qismlarni olamiz
+    try:
+        anime_service = AnimeService(session=session)
+        episodes = await anime_service.get_anime_episodes_cache(anime_id=anime_id)
+    except Exception as e:
+        logger.error(f"VIP yuklashda qismlarni olishda xato: {e}")
+        await callback.message.answer("❌ Qismlarni yuklashda texnik xatolik yuz berdi.")
+        return
+
+    # 5. Agar qismlar topilmasa
+    if not episodes:
+        await callback.message.answer("📭 Ushbu animening yuklangan qismlari topilmadi.")
+        return
+
+    # 6. 🚀 CHEKLOVSIZ KETMA-KET TASHAB BERISH MANTIQLARI
+    # Qismlarni tartib raqami bo'yicha saralaymiz (1-qism, 2-qism...)
+    sorted_episodes = sorted(episodes, key=lambda x: x.get("episode_number", 0))
+
+    # VIP foydalanuvchiga xabar
+    await callback.message.answer(f"📦 <b>Jami {len(sorted_episodes)} ta qism ketma-ket yuborilmoqda...</b>", parse_mode="HTML")
+
+    for ep in sorted_episodes:
+        video_file_id = ep.get("video_file_id")
+        ep_num = ep.get("episode_number", "?")
+        
+        if not video_file_id:
+            continue
+            
+        try:
+            # Telegram serveridagi file_id orqali cheklovsiz va juda tez yuboradi
+            await callback.bot.send_video(
+                chat_id=callback.from_user.id,
+                video=video_file_id,
+                caption=f"🎬 <b>{ep_num}-Qism</b>\n\n🍿 @AniNovuz bot orqali yuklab olindi.",
+                parse_mode="HTML"
+            )
+        except Exception as send_err:
+            logger.error(f"Qism yuborishda xato (Ep: {ep_num}): {send_err}")
+            # Bitta qismda xato bo'lsa, sikl to'xtab qolmasligi uchun continue qilamiz
+            continue
+
+    # Tugallanganlik haqida xabar
+    await callback.message.answer("✅ <b>Barcha qismlar muvaffaqiyatli yuborildi! Yoqimli tomosha!</b> 🍿", parse_mode="HTML")
