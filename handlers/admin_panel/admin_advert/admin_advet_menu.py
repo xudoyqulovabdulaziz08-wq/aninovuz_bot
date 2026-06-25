@@ -25,9 +25,7 @@ async def admin_advertisement(callback: CallbackQuery, state: FSMContext):
     # Tugmalar iyerarxiyasi (style="danger" o'z o'rnida qoldi)
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📢Reklama yuborish", callback_data="admin_advert")],
-            [InlineKeyboardButton(text="📊 Reklama statistikasi", callback_data="ad_stats")],
-            [InlineKeyboardButton(text="⏳ Reklama tarixi", callback_data="ad_history")],
+            [InlineKeyboardButton(text="📢Reklama yuborish", callback_data="admin_advert", style="primary")],
             [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="admin_panel", style="danger")]  
         ]
     )
