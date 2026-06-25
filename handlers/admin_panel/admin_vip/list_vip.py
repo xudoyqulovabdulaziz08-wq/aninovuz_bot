@@ -6,7 +6,7 @@ from typing import Any
 from datetime import datetime, timedelta, timezone
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
-
+from database.cache import cache_manager
 
 logger = logging.getLogger("AdminVIPlist")
 router = Router()
@@ -229,7 +229,184 @@ async def process_view_vip_details(callback: CallbackQuery, session: Any):
              f"🎭 <b>Username:</b> @{username if username != 'Foydalanuvchi' else '—'}\n"
              f"📅 <b>Tugash sanasi (UTC):</b> <code>{formatted_expire_date}</code>\n"
              f"⏱ <b>Qolgan vaqt:</b> {time_left_str}\n\n"
-             f"✨ Foydalanuvchi ustida bajariladigan amalni tanlang:",
+             f"✨ Foydalanuvchi ustida bajariladigan amalni tanlang:"
+             f"⚠️ Eslatib otamiz vaqt mintaqasi bizning soatdan 5 soat orqada bu bilan hech qanday muddat qoshmaydi yoki muddat kamaymaydi",
         reply_markup=vip_manage_kb,
         parse_mode="HTML"
     )
+
+
+
+
+
+
+# 1. Uzaytirish bosqichi - Muddatlarni ko'rsatish
+@router.callback_query(F.data.startswith("extend_vip:"))
+async def process_extend_vip_select_duration(callback: CallbackQuery):
+    await callback.answer()
+    
+    params = callback.data.split(":")
+    target_user_id = params[1]
+    current_page = params[2]
+    
+    # Uzaytirish uchun maxsus tugmalar jamlanmasi (Dinamik ma'lumotlar bilan)
+    duration_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📅 1 Oylik", callback_data=f"ext_dur:1:{target_user_id}:{current_page}", style="primary"),
+            InlineKeyboardButton(text="📅 2 Oylik", callback_data=f"ext_dur:2:{target_user_id}:{current_page}", style="primary")
+        ],
+        [
+            InlineKeyboardButton(text="📅 3 Oylik", callback_data=f"ext_dur:3:{target_user_id}:{current_page}", style="primary"),
+            InlineKeyboardButton(text="📅 6 Oylik", callback_data=f"ext_dur:6:{target_user_id}:{current_page}", style="primary")
+        ],
+        [
+            InlineKeyboardButton(text="📆 1 Yillik", callback_data=f"ext_dur:12:{target_user_id}:{current_page}", style="primary")
+        ],
+        [
+            # Bekor qilsa foydalanuvchining ma'lumotlar oynasiga qaytaradi
+            InlineKeyboardButton(text="❌ Bekor qilish", callback_data=f"view_vip:{target_user_id}:{current_page}", style="danger")
+        ]
+    ])
+    
+    await callback.message.edit_text(
+        text=f"⏳ <b>ID: {target_user_id} foydalanuvchining VIP maqomini uzaytirish.</b>\n\n"
+             f"<i>Iltimos, amaldagi muddatga qo'shiladigan yangi muddatni tanlang:</i>",
+        reply_markup=duration_kb,
+        parse_mode="HTML"
+    )
+
+
+
+
+@router.callback_query(F.data.startswith("ext_dur:"))
+async def process_extend_vip_confirm_prompt(callback: CallbackQuery):
+    await callback.answer()
+    
+    params = callback.data.split(":")
+    months = int(params[1])
+    target_user_id = int(params[2])
+    current_page = int(params[3])
+    
+    duration_text = f"{months} oylik" if months < 12 else "1 yillik"
+    
+    confirm_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Ha", callback_data=f"ext_conf:yes:{months}:{target_user_id}:{current_page}", style="primary"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data=f"ext_conf:no:{months}:{target_user_id}:{current_page}", style="danger")
+        ]
+    ])
+    
+    await callback.message.edit_text(
+        text=f"❓ <b>Tasdiqlash:</b>\n\n"
+             f"Rostdan ham <code>{target_user_id}</code> ID raqamli foydalanuvchining VIP muddatiga "
+             f"yana <b>{duration_text}</b> qo'shib, statusini uzaytirmoqchimisiz?",
+        reply_markup=confirm_kb,
+        parse_mode="HTML"
+    )
+
+
+
+
+
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import update
+
+# 3. Uzaytirish bosqichi - Yakuniy ijro (Baza bilan xavfsiz tranzaksiya)
+@router.callback_query(F.data.startswith("ext_conf:"))
+async def process_extend_vip_final_execution(callback: CallbackQuery, session: Any):
+    params = callback.data.split(":")
+    decision = params[1]
+    months = int(params[2])
+    target_user_id = int(params[3])
+    current_page = int(params[4])
+    
+    # Agar adminga "Yo'q" tugmasini bossa, darhol profil ko'rinishiga qaytaramiz
+    if decision == "no":
+        await callback.answer("Uzaytirish bekor qilindi.")
+        # Avval yozgan profilni ko'rish handlerimizni qo'lda chaqirib qo'ysak ham bo'ladi yoki redirect
+        await callback.message.edit_text(text="⏳ Profil ma'lumotlariga qaytilmoqda...")
+        # Profilni qayta yuklash callback'ini simulyatsiya qilamiz
+        callback.data = f"view_vip:{target_user_id}:{current_page}"
+        return await process_view_vip_details(callback, session)
+
+    await callback.answer("⏳ VIP muddat uzaytirilmoqda...", show_alert=False)
+    
+    try:
+        user_service = UserService(session=session)
+        user_data = await user_service.get_user(user_id=target_user_id)
+        
+        if not user_data:
+            await callback.message.edit_text(text="❌ Xatolik: Foydalanuvchi bazadan topilmadi.")
+            return
+
+        from database.models import DBUser, UserStatus
+        
+        # 📌 ESKI MUDDATGA QO'SHISH MATEMATIKASI (Server UTC vaqtida)
+        now = datetime.now(timezone.utc)
+        days_to_add = months * 30
+        
+        expire_str = user_data.get("vip_expire_date")
+        base_date = now
+        
+        if expire_str:
+            try:
+                expire_dt = datetime.fromisoformat(expire_str)
+                # Agar amaldagi VIP muddati hali tugamagan bo'lsa, yangi muddatni joriy tugash sanasining USTIGA qo'shamiz!
+                if expire_dt > now:
+                    base_date = expire_dt
+            except Exception:
+                base_date = now
+
+        # Yangi yakuniy sana
+        new_expire_date = base_date + timedelta(days=days_to_add)
+
+        # SQL Alchemy orqali bazani yangilaymiz
+        stmt = (
+            update(DBUser)
+            .where(DBUser.user_id == target_user_id)
+            .values(status=UserStatus.VIP, vip_expire_date=new_expire_date)
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+        # Keshni tozalaymiz, shunda middleware va servis yangi sanani oqiydi
+        await cache_manager.invalidate("users", str(target_user_id), broadcast=True)
+        await cache_manager.invalidate("sub_status", str(target_user_id), broadcast=True)
+
+        formatted_date = new_expire_date.strftime("%d.%m.%Y %H:%M")
+        duration_text = f"{months} oylik" if months < 12 else "1 yillik"
+
+        back_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⬅️ Profilga qaytish", callback_data=f"view_vip:{target_user_id}:{current_page}", style="danger")]
+        ])
+
+        await callback.message.edit_text(
+            text=f"🚀 <b>VIP muvaffaqiyatli uzaytirildi!</b>\n\n"
+                 f"👤 Foydalanuvchi: <code>{target_user_id}</code>\n"
+                 f"➕ Qo'shildi: <b>{duration_text}</b>\n"
+                 f"📅 Yangi tugash muddati (UTC): <code>{formatted_date}</code>",
+            reply_markup=back_kb,
+            parse_mode="HTML"
+        )
+
+        # Foydalanuvchini xabardor qilish
+        try:
+            await callback.bot.send_message(
+                chat_id=target_user_id,
+                text=f"✨ <b>VIP maqomingiz uzaytirildi!</b>\n"
+                     f"Admin tomonidan sizga yana {duration_text} VIP muddat qo'shildi.\n"
+                     f"📅 Yangi amal qilish muddati: <code>{formatted_date}</code> (UTC) gacha.",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"VIP uzaytirishda xatolik: {e}")
+        await callback.message.edit_text(
+            text="❌ <b>Xatolik yuz berdi!</b> VIP muddatini uzaytirish imkoni bo'lmadi.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⬅️ Profilga qaytish", callback_data=f"view_vip:{target_user_id}:{current_page}", style="danger")]
+            ])
+        )

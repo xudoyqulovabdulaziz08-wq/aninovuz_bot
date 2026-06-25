@@ -288,7 +288,8 @@ async def process_vip_confirmation(callback: CallbackQuery, state: FSMContext, s
             await callback.bot.send_message(
                 chat_id=target_user_id,
                 text=f"🎉 <b>Tabriklaymiz! Admin tomonidan sizga {duration_text} VIP status taqdim etildi!</b>\n"
-                     f"📅 VIP muddati: <code>{formatted_date}</code> gacha faol.",
+                     f"📅 VIP muddati: <code>{formatted_date}</code> gacha faol."
+                     f"⚠️ Eslatib otamiz vaqt mintaqasi bizning soatdan 5 soat orqada bu bilan hech qanday muddat qoshmaydi yoki muddat kamaymaydi",
                 parse_mode="HTML"
             )
         except Exception:
