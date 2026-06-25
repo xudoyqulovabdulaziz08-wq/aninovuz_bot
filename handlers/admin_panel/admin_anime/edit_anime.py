@@ -157,8 +157,8 @@ async def process_new_anime_name(message: Message, state: FSMContext):
     # Tasdiqlash tugmalari
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_edit:yes"),
-            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_edit:no")
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_edit:yes", style="success"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_edit:no", style="danger")
         ]
     ])
     
@@ -231,7 +231,7 @@ async def save_or_cancel_anime_title(callback: CallbackQuery, state: FSMContext,
         return
 
     success_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}")]
+        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}", style="danger") ]
     ])
     
     await callback.message.edit_caption(
@@ -322,8 +322,8 @@ async def process_new_anime_lang(message: Message, state: FSMContext):
     # Tasdiqlash tugmalari
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_lang_edit:yes"),
-            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_lang_edit:no")
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_lang_edit:yes", style="success"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_lang_edit:no", style="danger")
         ]
     ])
     
@@ -390,7 +390,7 @@ async def save_or_cancel_anime_lang(callback: CallbackQuery, state: FSMContext, 
         await callback.message.edit_caption(
             caption="❌ <b>Xatolik:</b> Til ma'lumotini saqlashda texnik xato yuz berdi.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="⚙️ Tahrirlash bo'limiga qaytish", callback_data=f"force_refresh_edit:{anime_id}")
+                InlineKeyboardButton(text="⚙️ Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}", style="danger")
             ]]),
             parse_mode="HTML"
         )
@@ -399,7 +399,7 @@ async def save_or_cancel_anime_lang(callback: CallbackQuery, state: FSMContext, 
 
     # Muvaffaqiyatli xabar va refresh tugmasi
     success_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}")]
+        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}", style="danger")]
     ])
     
     await callback.message.edit_caption(
@@ -469,8 +469,8 @@ async def process_new_anime_desc(message: Message, state: FSMContext):
     # Tasdiqlash tugmalari
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_desc_edit:yes"),
-            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_desc_edit:no")
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_desc_edit:yes", style="success"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_desc_edit:no", style="danger")
         ]
     ])
     
@@ -542,7 +542,7 @@ async def save_or_cancel_anime_desc(callback: CallbackQuery, state: FSMContext, 
         await callback.message.edit_caption(
             caption="❌ <b>Xatolik:</b> Tasnifni saqlashda texnik xato yuz berdi.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="⚙️ Tahrirlash bo'limiga qaytish", callback_data=f"force_refresh_edit:{anime_id}")
+                InlineKeyboardButton(text="⚙️ Tahrirlash qaytish", callback_data=f"force_refresh_edit:{anime_id}", style="danger")
             ]]),
             parse_mode="HTML"
         )
@@ -551,7 +551,7 @@ async def save_or_cancel_anime_desc(callback: CallbackQuery, state: FSMContext, 
 
     # Muvaffaqiyatli xabar va refresh tugmasi
     success_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}")]
+        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}", style="danger")]
     ])
     
     await callback.message.edit_caption(
@@ -647,8 +647,8 @@ async def process_new_anime_year(message: Message, state: FSMContext):
     # Tasdiqlash tugmalari
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_year_edit:yes"),
-            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_year_edit:no")
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_year_edit:yes", style="success"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_year_edit:no", style="danger")
         ]
     ])
     
@@ -716,7 +716,7 @@ async def save_or_cancel_anime_year(callback: CallbackQuery, state: FSMContext, 
         await callback.message.edit_caption(
             caption="❌ <b>Xatolik:</b> Yil ma'lumotini saqlashda texnik xato yuz berdi.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="⚙️ Tahrirlash bo'limiga qaytish", callback_data=f"force_refresh_edit:{anime_id}")
+                InlineKeyboardButton(text="⚙️ Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}", style="danger")
             ]]),
             parse_mode="HTML"
         )
@@ -725,7 +725,7 @@ async def save_or_cancel_anime_year(callback: CallbackQuery, state: FSMContext, 
 
     # Muvaffaqiyatli xabar va refresh tugmasi
     success_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}")]
+        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}", style="danger")]
     ])
     
     await callback.message.edit_caption(
@@ -798,8 +798,8 @@ async def process_new_anime_poster(message: Message, state: FSMContext):
     # Tasdiqlash tugmalari
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_poster_edit:yes"),
-            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_poster_edit:no")
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_poster_edit:yes", style="success"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_poster_edit:no", style="danger")
         ]
     ])
     
@@ -875,7 +875,7 @@ async def save_or_cancel_anime_poster(callback: CallbackQuery, state: FSMContext
         await callback.message.answer(
             "❌ <b>Xatolik:</b> Posterni saqlashda texnik xato yuz berdi.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="⚙️ Tahrirlash bo'limiga qaytish", callback_data=f"force_refresh_edit:{anime_id}")
+                InlineKeyboardButton(text="⚙️ Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}", style="danger")
             ]]),
             parse_mode="HTML"
         )
