@@ -239,3 +239,30 @@ class AnimeRepository:
             anime_list.append(data)
             
         return anime_list
+    
+
+    # ================= UNIVERSAL UPDATE ANIME =================
+    @staticmethod
+    async def update(session: Any, anime_id: int, update_data: Dict[str, Any]) -> bool:
+        """
+        Bazadagi animening istalgan ustunlarini dinamik yangilash uchun universal metod.
+        update_data format: {"title": "Yangi nom", "year": 2026}
+        """
+        session = await AnimeRepository._prepare_session(session)
+        
+        # 1. Animeni bazadan qidiramiz
+        stmt = select(Anime).where(Anime.anime_id == anime_id)
+        result = await session.execute(stmt)
+        anime = result.scalar_one_or_none()
+        
+        if not anime:
+            logger.warning(f"⚠️ Yangilash g'alati: Anime ID={anime_id} topilmadi.")
+            return False
+            
+        # 2. Kelgan ma'lumotlarni setattr orqali dinamik ustunlarga yozamiz
+        for key, value in update_data.items():
+            if hasattr(anime, key):
+                setattr(anime, key, value)
+                logger.debug(f"✍️ Anime ID={anime_id}: {key} -> {value}")
+                
+        return True

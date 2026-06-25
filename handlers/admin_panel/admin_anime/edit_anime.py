@@ -35,20 +35,20 @@ async def process_edit_anime_menu(callback: CallbackQuery, session: Any):
     # 3. Siz aytgan toza va siqilib ketmaydigan qisqa tugmalar paneli (UX Optimized)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📝 Nomi", callback_data=f"edit_field:title:{anime_id}"),
-            InlineKeyboardButton(text="📅 Yili", callback_data=f"edit_field:year:{anime_id}")
+            InlineKeyboardButton(text="📝 Nomi", callback_data=f"edit_field:title:{anime_id}", style="primary" ),
+            InlineKeyboardButton(text="📅 Yili", callback_data=f"edit_field:year:{anime_id}", style="primary")
         ],
         [
-            InlineKeyboardButton(text="🌐 Tili", callback_data=f"edit_field:lang:{anime_id}"),
-            InlineKeyboardButton(text="🔮 Janr", callback_data=f"edit_genre_menu:{anime_id}")
+            InlineKeyboardButton(text="🌐 Tili", callback_data=f"edit_field:lang:{anime_id}", style="primary"),
+            InlineKeyboardButton(text="🔮 Janr", callback_data=f"edit_genre_menu:{anime_id}", style="primary")
         ],
         [
-            InlineKeyboardButton(text="📝 Tasnif", callback_data=f"edit_field:desc:{anime_id}"),
-            InlineKeyboardButton(text="🖼 Poster", callback_data=f"edit_field:poster:{anime_id}")
+            InlineKeyboardButton(text="📝 Tasnif", callback_data=f"edit_field:desc:{anime_id}", style="primary"),
+            InlineKeyboardButton(text="🖼 Poster", callback_data=f"edit_field:poster:{anime_id}", style="primary")
         ],
         [
             # Orqaga bosganda eski daxshatli chiroyli ramkali vizual menyuga qaytaradi (page=1 default)
-            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1")
+            InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"v_anime:{anime_id}:1",  style="danger")
         ]
     ])
 

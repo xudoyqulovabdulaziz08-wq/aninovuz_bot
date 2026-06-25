@@ -38,6 +38,43 @@ class AnimeService:
         await self.cache.set("anime", anime_id, anime, ttl=3600)
         return anime
 
+
+    # ==================================================
+    # 🔥 UPDATE ANIME (TRANSACTION-SAFE & CACHE-AWARE)
+    # ==================================================
+    async def update_anime(self, anime_id: int, update_data: Dict[str, Any]) -> bool:
+        """
+        Business Logic: Animeni yangilaydi, DB commit qiladi va muvaffaqiyatli bo'lsa,
+        Valkey keshidan eski ma'lumotni o'chirib tashlaydi (Invalidate).
+        """
+        if not update_data:
+            return False
+
+        # ✅ TO'G'RI VARIANT (Teskari sleshlar olib tashlandi):
+        if hasattr(self.session, "_ensure_session"):
+            await self.session._ensure_session()
+
+        try:
+            # Repozitoriy orqali bazadagi fieldlarni yangilaymiz
+            success = await self.repo.update(self.session, anime_id, update_data)
+            
+            if not success:
+                return False
+                
+            if hasattr(self.session, "commit"):
+                await self.session.commit()
+                
+            await self.cache.invalidate("anime", anime_id)
+            logger.info(f"✅ Anime ID={anime_id} muvaffaqiyatli yangilandi va keshi tozalandi.")
+            return True
+            
+        except Exception as e:
+            logger.error(f"🚨 Service ichida animeni yangilashda xato yuz berdi: {e}")
+            if hasattr(self.session, "rollback"):
+                await self.session.rollback()
+            return False
+        
+        
     # ==================================================
     # 📋 LIST ANIME (CACHE-FIRST)
     # ==================================================
@@ -253,3 +290,6 @@ class AnimeService:
         logger.info(f"💾 CACHE SET: Anime episodes cached for anime_id={anime_id} (TTL: 1h)")
         
         return episodes
+    
+
+
