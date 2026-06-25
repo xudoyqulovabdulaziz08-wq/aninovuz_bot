@@ -123,8 +123,11 @@ async def view_anime_details(callback: CallbackQuery, session: Any):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📹 Qismlarni tahrirlash", callback_data=f"manage_episodes:{anime_id}", style="primary"),
+            InlineKeyboardButton(text="📹 Qism tahrirlash", callback_data=f"manage_episodes:{anime_id}", style="primary"),
             InlineKeyboardButton(text="🗑 Animeni o‘chirish", callback_data=f"del_anime:{anime_id}", style="danger")
+        ],
+        [
+            InlineKeyboardButton(text="✏️ Anime Tahrirlash", callback_data=f"edit_anime:{anime_id}", style="primary" )
         ],
         [
             InlineKeyboardButton(text="📢 Kanalga e‘lon qilish", callback_data=f"publish_episodes_chan:{anime_id}", style="primary")
