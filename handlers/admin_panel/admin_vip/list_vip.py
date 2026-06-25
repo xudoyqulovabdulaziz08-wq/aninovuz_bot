@@ -32,7 +32,7 @@ async def get_vip_list_markup(session, page: int = 1, per_page: int = 10) -> tup
     # 2. Agar VIP foydalanuvchi umuman topilmasa
     if total_vips == 0:
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ VIP menyusiga", callback_data="admin_panel", style="danger")]
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="admin_panel", style="danger")]
         ])
         return kb, 0
 
@@ -523,6 +523,6 @@ async def process_revoke_vip_final_execution(callback: CallbackQuery, session: A
         await callback.message.edit_text(
             text="❌ <b>Tizim xatoligi!</b> VIP statusni o'chirishda kutilmagan muammo yuz berdi.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⬅️ Profilga qaytish", callback_data=f"view_vip:{target_user_id}:{current_page}", style="danger")]
+                [InlineKeyboardButton(text="⬅️ Profilga qaytish", callback_data=f"list_vip", style="danger")]
             ])
         )
