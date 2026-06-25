@@ -222,3 +222,24 @@ class UserService:
         # 5 daqiqaga keshga yozib qo'yamiz
         await self.cache.set("admin", "stats", stats, ttl=300)
         return stats
+    
+
+    # ==================================================
+    # 💎 LIST ALL VIP USERS (TRANSACTION-SAFE)
+    # ==================================================
+    async def list_vip_users(self) -> list[dict]:
+        """
+        Bazadan barcha faol VIP foydalanuvchilarni muddati bilan tartiblab oladi.
+        """
+        if hasattr(self.session, "_ensure_session"):
+            await self.session._ensure_session()
+
+        from sqlalchemy import select
+        from database.models import DBUser, UserStatus
+
+        # Faqat statusi VIP bo'lgan foydalanuvchilarni muddati bo'yicha tartiblab olamiz
+        stmt = select(DBUser).where(DBUser.status == UserStatus.VIP).order_by(DBUser.vip_expire_date.asc())
+        result = await self.session.execute(stmt)
+        
+        # Olingan modellarni to_dict (dict) formatiga o'tkazib qaytaramiz
+        return [self.repo._to_dict(user) for user in result.scalars().all()]
