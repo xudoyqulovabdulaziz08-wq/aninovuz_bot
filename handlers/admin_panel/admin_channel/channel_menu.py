@@ -25,8 +25,8 @@ async def admin_channel(callback: CallbackQuery, state: FSMContext):
     # Tugmalar iyerarxiyasi (style="danger" o'z o'rnida qoldi)
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="➕ Kanal qo‘shish", callback_data="add_channel")],
-            [InlineKeyboardButton(text="📃 Kanallar ro‘yxati", callback_data="list_channel")],
+            [InlineKeyboardButton(text="➕ Kanal qo‘shish", callback_data="add_channel", style="primary")],
+            [InlineKeyboardButton(text="📃 Kanallar ro‘yxati", callback_data="list_channel", style="primary")],
             [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="admin_panel", style="danger")]  
         ]
     )

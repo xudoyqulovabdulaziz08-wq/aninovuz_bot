@@ -41,7 +41,7 @@ async def show_admin_stats_handler(callback: CallbackQuery, session: Any):
 
     # Orqaga (Asosiy admin panel menyusiga) qaytish tugmasi
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Orqaga qaytish", callback_data="admin_panel")]
+        [InlineKeyboardButton(text="⬅️ Orqaga qaytish", callback_data="admin_panel", style="danger")]
     ])
 
     try:

@@ -40,18 +40,18 @@ def get_channels_keyboard(channels: List[Dict[str, Any]], page: int = 1, per_pag
     
     # Oldingi sahifa tugmasi
     if page > 1:
-        nav_row.append(InlineKeyboardButton(text="⬅️", callback_data=f"chanpage:{page - 1}"))
+        nav_row.append(InlineKeyboardButton(text="⬅️", callback_data=f"chanpage:{page - 1}", style="primary"))
     else:
-        nav_row.append(InlineKeyboardButton(text="❌", callback_data="noop")) # Bo'sh tugma
+        nav_row.append(InlineKeyboardButton(text="❌", callback_data="noop", style="danger")) # Bo'sh tugma
         
     # Joriy sahifa holati
-    nav_row.append(InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="noop"))
+    nav_row.append(InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="noop", style="primary"))
     
     # Keyingi sahifa tugmasi
     if page < total_pages:
-        nav_row.append(InlineKeyboardButton(text="➡️", callback_data=f"chanpage:{page + 1}"))
+        nav_row.append(InlineKeyboardButton(text="➡️", callback_data=f"chanpage:{page + 1}", style="primary"))
     else:
-        nav_row.append(InlineKeyboardButton(text="❌", callback_data="noop"))
+        nav_row.append(InlineKeyboardButton(text="❌", callback_data="noop", style="danger"))
         
     keyboard.append(nav_row)
     
@@ -131,7 +131,7 @@ async def show_channel_info(callback: CallbackQuery, session: Any):
             await callback.message.edit_text(
                 text="❌ Kanal ma'lumotlari topilmadi yoki u allaqachon o‘chirilgan.",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"chanpage:{page}")]
+                    [InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"chanpage:{page}", style="danger")]
                 ])
             )
         except TelegramBadRequest:
@@ -162,10 +162,10 @@ async def show_channel_info(callback: CallbackQuery, session: Any):
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔄 Holatni o‘zgartirish", callback_data=f"chantoggle:{channel_id}:{page}"),
+                InlineKeyboardButton(text="🔄 Holatni o‘zgartirish", callback_data=f"chantoggle:{channel_id}:{page}", style="primary"),
                 InlineKeyboardButton(text="🗑 O‘chirish", callback_data=f"chandel:{channel_id}:{page}", style="danger")
             ],
-            [InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"chanpage:{page}")]
+            [InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"chanpage:{page}", style="danger")]
         ]
     )
     
@@ -372,10 +372,10 @@ async def execute_channel_toggle(callback: CallbackQuery, session: Any):
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔄 Holatni o‘zgartirish", callback_data=f"chantoggle:{channel_id}:{page}"),
+                InlineKeyboardButton(text="🔄 Holatni o‘zgartirish", callback_data=f"chantoggle:{channel_id}:{page}", style="primary"),
                 InlineKeyboardButton(text="🗑 O‘chirish", callback_data=f"chandel:{channel_id}:{page}", style="danger")
             ],
-            [InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"chanpage:{page}")]
+            [InlineKeyboardButton(text="⬅️ Ro‘yxatga qaytish", callback_data=f"chanpage:{page}", style="danger")]
         ]
     )
     

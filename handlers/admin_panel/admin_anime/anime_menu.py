@@ -26,8 +26,8 @@ async def admin_anime(callback: CallbackQuery, state: FSMContext):
     # Telegram'ning yangi rang tizimiga moslangan tugmalar
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="➕ Anime qo‘shish", callback_data="add_anime", style="success")],
-            [InlineKeyboardButton(text="📋 Anime ro‘yxati", callback_data="list_anime_page:1")], # Paginatsiya 1-sahifadan boshlanadi
+            [InlineKeyboardButton(text="➕ Anime qo‘shish", callback_data="add_anime", style="primary")],
+            [InlineKeyboardButton(text="📋 Anime ro‘yxati", callback_data="list_anime_page:1", style="primary")], # Paginatsiya 1-sahifadan boshlanadi
             [InlineKeyboardButton(text="⬅️ Bosh panelga", callback_data="admin_panel", style="danger")]  
         ]
     )
