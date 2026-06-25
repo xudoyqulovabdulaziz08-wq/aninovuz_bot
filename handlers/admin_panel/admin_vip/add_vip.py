@@ -102,15 +102,15 @@ async def process_valid_user_id(message: Message, state: FSMContext, session: An
     # 📅 4. Muddat tanlash tugmalarini hosil qilamiz (Callback_data ga oylarni yozamiz)
     duration_kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📅 1 Oylik", callback_data="set_vip_duration:1", style="primary"),
-            InlineKeyboardButton(text="📅 2 Oylik", callback_data="set_vip_duration:2", style="primary")
+            InlineKeyboardButton(text="📅 1 Oylik", callback_data="set_vip_durations:1", style="primary"),
+            InlineKeyboardButton(text="📅 2 Oylik", callback_data="set_vip_durations:2", style="primary")
         ],
         [
-            InlineKeyboardButton(text="📅 3 Oylik", callback_data="set_vip_duration:3", style="primary"),
-            InlineKeyboardButton(text="📅 6 Oylik", callback_data="set_vip_duration:6", style="primary")
+            InlineKeyboardButton(text="📅 3 Oylik", callback_data="set_vip_durations:3", style="primary"),
+            InlineKeyboardButton(text="📅 6 Oylik", callback_data="set_vip_durations:6", style="primary")
         ],
         [
-            InlineKeyboardButton(text="📆 1 Yillik", callback_data="set_vip_duration:12", style="primary")
+            InlineKeyboardButton(text="📆 1 Yillik", callback_data="set_vip_durations:12", style="primary")
         ],
         [
             InlineKeyboardButton(text="❌ Bekor qilish", callback_data="admin_vip_panel", style="danger")
@@ -135,7 +135,7 @@ async def process_valid_user_id(message: Message, state: FSMContext, session: An
 
 
 
-@router.callback_query(F.data.startswith("set_vip_duration:"))
+@router.callback_query(F.data.startswith("set_vip_durations:"))
 async def process_set_duration(callback: CallbackQuery, state: FSMContext):
     # Callback datadan oylar sonini ajratib olamiz
     months = int(callback.data.split(":")[1])
