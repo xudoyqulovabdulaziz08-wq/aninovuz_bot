@@ -243,3 +243,81 @@ class UserService:
         
         # Olingan modellarni to_dict (dict) formatiga o'tkazib qaytaramiz
         return [self.repo._to_dict(user) for user in result.scalars().all()]
+    
+
+    # ==================================================
+    # 📢 BACKGROUND ADVERT BROADCAST (SAFE ENGINE)
+    # ==================================================
+    async def broadcast_advert_in_background(
+        self, 
+        bot: Any, 
+        target_group: str, 
+        from_chat_id: int, 
+        message_id: int
+    ) -> None:
+        """
+        Orqa fonda botni qotirmasdan, target guruh bo'yicha reklamani xavfsiz tarqatadi.
+        """
+        import asyncio
+        from sqlalchemy import select
+        from database.models import DBUser, UserStatus
+
+        logger.info(f"🚀 Background broadcast session optimized for: {target_group}")
+        
+        try:
+            # 1. Sessiyani proxy orqali real ob'ektga tayyorlab olamiz
+            if hasattr(self.session, "_ensure_session"):
+                await self.session._ensure_session()
+                
+            from repositories.user_repository import UserRepository
+            real_session = UserRepository._get_real_session(self.session)
+
+            # 2. Guruh bo'yicha filterlash va ID larni yig'ish
+            stmt = select(DBUser.user_id)
+            if target_group == "vip":
+                stmt = stmt.where(DBUser.status == UserStatus.VIP)
+            elif target_group == "user":
+                stmt = stmt.where(DBUser.status == UserStatus.USER)
+            elif target_group == "admin":
+                stmt = stmt.where(DBUser.status == UserStatus.ADMIN)
+            # 'all' bo'lsa hech qanday filtersiz hammani oladi
+
+            result = await real_session.execute(stmt)
+            user_ids = result.scalars().all()
+            
+        except Exception as e:
+            logger.error(f"❌ Error fetching users for advertisement: {e}")
+            return
+
+        success_count = 0
+        fail_count = 0
+
+        # 3. Reklama tarqatish tsikli (Sessiyaga yuklama bermaydi, chunki faqat o'qiydi)
+        for uid in user_ids:
+            try:
+                await bot.copy_message(
+                    chat_id=uid,
+                    from_chat_id=from_chat_id,
+                    message_id=message_id
+                )
+                success_count += 1
+                # FloodWait oldini olish uchun kechikish
+                await asyncio.sleep(0.05)
+            except Exception as e:
+                fail_count += 1
+                logger.debug(f"Could not send ad to {uid}: {e}")
+
+        logger.info(f"🏁 Advert broadcast finished. Success: {success_count}, Failed: {fail_count}")
+
+        # 4. Adminga yakuniy hisobotni yuborish
+        try:
+            await bot.send_message(
+                chat_id=from_chat_id,
+                text=f"📊 <b>Reklama tarqatish yakunlandi!</b>\n\n"
+                     f"🎯 Guruh: <code>{target_group.upper()}</code>\n"
+                     f"✅ Yetkazildi: <code>{success_count} ta</code>\n"
+                     f"❌ Yetkazilmadi: <code>{fail_count} ta</code>",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select
 from repositories.user_repository import UserRepository
 from database.models import DBUser, UserStatus
+from services.user_service import UserService
 router = Router()
 logger = logging.getLogger("AdminVIP")
 class AdminAdvertSG(StatesGroup):
@@ -117,67 +118,17 @@ async def process_receive_advert_message(message: Message, state: FSMContext):
 
 
 
-async def send_advert_background_task(bot, target_group, from_chat_id, message_id, session_factory):
-    """Orqa fonda xabar tarqatish taski (Bot yuklamasini kamaytiradi va crashdan himoya qiladi)"""
-    logger.info(f"🚀 Background advert broadcast started for group: {target_group}")
-    
-    # Yangi session ochamiz, chunki bu alohida fondagi task
-    async with session_factory() as session:
-        stmt = select(DBUser.user_id)
-        
-        # Guruh bo'yicha filterlash
-        if target_group == "vip":
-            stmt = stmt.where(DBUser.status == UserStatus.VIP)
-        elif target_group == "user":
-            stmt = stmt.where(DBUser.status == UserStatus.USER)
-        elif target_group == "admin":
-            stmt = stmt.where(DBUser.status == UserStatus.ADMIN)
-        # 'all' bo'lsa hech qanday filtersiz hamma olinadi
-        
-        result = await session.execute(stmt)
-        user_ids = result.scalars().all()
-
-    success_count = 0
-    fail_count = 0
-    
-    for uid in user_ids:
-        try:
-            # copy_to metodi xabarni rasm, video, text, inline_keyboard bilan birga nusxalaydi
-            await bot.copy_message(
-                chat_id=uid,
-                from_chat_id=from_chat_id,
-                message_id=message_id
-            )
-            success_count += 1
-            # Telegram FloodWait xatoligini oldini olish uchun kichik kechikish
-            await asyncio.sleep(0.05) 
-        except Exception as e:
-            fail_count += 1
-            # Agar foydalanuvchi botni bloklagan bo'lsa, logga yozadi lekin tarqatish to'xtamaydi
-            logger.debug(f"Could not send ad to {uid}: {e}")
-
-    logger.info(f"🏁 Advert broadcast finished. Success: {success_count}, Failed: {fail_count}")
-    
-    # Xohishga ko'ra adminga reklama tugagani haqida hisobot yuborish mumkin
-    try:
-        await bot.send_message(
-            chat_id=from_chat_id,
-            text=f"📊 <b>Reklama tarqatish yakunlandi!</b>\n\n"
-                 f"✅ Muvaffaqiyatli yetkazildi: <code>{success_count} ta</code>\n"
-                 f"❌ Yetkazilmadi (Bloklaganlar): <code>{fail_count} ta</code>",
-            parse_mode="HTML"
-        )
-    except Exception:
-        pass
-
-
 
 
 
 
 
 @router.callback_query(F.data.startswith("adv_confirm:"))
-async def process_final_advert_decision(callback: CallbackQuery, state: FSMContext, session: Any):
+async def process_final_advert_decision(
+    callback: CallbackQuery, 
+    state: FSMContext, 
+    user_service: UserService  # Middleware beradigan tayyor servis
+):
     decision = callback.data.split(":")[1]
     
     if decision == "no":
@@ -189,36 +140,27 @@ async def process_final_advert_decision(callback: CallbackQuery, state: FSMConte
         )
         return
 
-    # "yes" bo'lganda FSM ma'lumotlarini olamiz
+    # FSM ma'lumotlarini o'qiymiz
     data = await state.get_data()
     target_group = data.get("target_group")
     ad_message_id = data.get("ad_message_id")
     ad_chat_id = data.get("ad_chat_id")
     
     await callback.answer("🚀 Tarqatish boshlandi!", show_alert=False)
-    await state.clear() # FSM holatni darhol tozalaymiz
+    await state.clear() # FSMni darhol tozalaymiz
     
-    # 📌 ORQA FONDA ISHLASH SIRI: asyncio.create_task
-    # Buning uchun sizda session_factory (async_sessionmaker) bor deb hisoblaymiz, 
-    # agar session proxy modelda bo'lsa, session.__class__ yoki asosiy sessionmaker uzatiladi.
-    session_real = UserRepository._get_real_session(session)
-    session_factory = session_real.bind if hasattr(session_real, "bind") else None
-    
-    # Agar middleware'ingizda sessionmaker bo'lsa, o'shani ishlating, aks holda joriy session bindidan sessionmaker yasaymiz
-    if session_factory and not isinstance(session_factory, async_sessionmaker):
-        session_factory = async_sessionmaker(bind=session_real.bind, expire_on_commit=False)
-
+    # 🔥 MUKAMMAL VA QISQA YECHIM: asyncio.create_task
+    # UserService ichidagi tayyor metodni asinxron fonda chaqiramiz
     asyncio.create_task(
-        send_advert_background_task(
+        user_service.broadcast_advert_in_background(
             bot=callback.bot,
             target_group=target_group,
             from_chat_id=ad_chat_id,
-            message_id=ad_message_id,
-            session_factory=session_factory
+            message_id=ad_message_id
         )
     )
     
-    # Adminga darhol javob qaytaramiz (Bot qotib qolmaydi!)
+    # Adminga silliq va tezkor javob qaytaramiz
     await callback.message.edit_text(
         text="🚀 <b>Reklama orqa fonda tarqatila boshladi!</b>\n\n"
              "Bot foydalanuvchilarga odatiy rejimda xizmat ko'rsatishda davom etadi. "
