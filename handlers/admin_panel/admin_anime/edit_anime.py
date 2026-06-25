@@ -178,7 +178,7 @@ async def process_new_anime_name(message: Message, state: FSMContext):
 
 
 # =====================================================================
-# 📑 3-QADAM: Tasdiqlash (Ha yoki Yo'q) tugmalari bosilganda
+# 📑 3-QADAM: Tasdiqlash (Ha yoki Yo'q) tugmalari bosilganda (TUZATILDI)
 # =====================================================================
 @router.callback_query(EditAnimeStates.waiting_for_confirmation, F.data.startswith("confirm_edit:"))
 async def save_or_cancel_anime_title(callback: CallbackQuery, state: FSMContext, session: Any):
@@ -193,23 +193,21 @@ async def save_or_cancel_anime_title(callback: CallbackQuery, state: FSMContext,
         await callback.answer("Tahrirlash bekor qilindi.", show_alert=True)
         await state.clear()
         
-        # Siz aytgandek, edit_anime: ga qaytish uchun xabarni o'chirib qayta yuboramiz (media qo'llab quvvatlashi uchun)
         try:
             await callback.message.delete()
         except:
             pass
             
-        # edit_anime jarayonini boshidan ishga tushirish (Siz yozgan bosh menyuni chaqirish)
-        # callback.data ni qo'lda yasab bosh menyu funksiyasiga qaytaramiz:
-        callback.data = f"edit_anime:{anime_id}"
-        from handlers.admin_panel.admin_anime.edit_anime import process_edit_anime_menu # O'zingizning bosh menyu importingiz
-        await process_edit_anime_menu(callback, session)
+        # 🔥 Pydantic frozen xatosini chetlab o'tish uchun ob'ekt nusxasini (copy) yaratamiz
+        cloned_callback = callback.model_copy(update={"data": f"edit_anime:{anime_id}"})
+        
+        from handlers.admin_panel.admin_anime.edit_anime import process_edit_anime_menu
+        await process_edit_anime_menu(cloned_callback, session)
         return
 
     # ✅ AGAR ADMIN "HA" DEB TASDIQLASA
     await callback.answer("Saqlanmoqda...")
     
-    # Backend (Service) orqali yangilaymiz
     try:
         service = AnimeService(session=session)
         success = await service.update_anime(anime_id=anime_id, update_data={"title": new_name})
@@ -228,7 +226,6 @@ async def save_or_cancel_anime_title(callback: CallbackQuery, state: FSMContext,
         await state.clear()
         return
 
-    # Muvaffaqiyatli o'zgartirildi deb edit text (caption) bo'ladi
     success_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}")]
     ])
@@ -242,19 +239,19 @@ async def save_or_cancel_anime_title(callback: CallbackQuery, state: FSMContext,
 
 
 # =====================================================================
-# 📑 4-QADAM: Xabarni o'chirib yangidan yuboradigan majburiy qaytish handler
+# 📑 4-QADAM: Majburiy qaytish handler (TUZATILDI)
 # =====================================================================
 @router.callback_query(F.data.startswith("force_refresh_edit:"))
 async def force_refresh_edit_menu(callback: CallbackQuery, session: Any):
     anime_id = int(callback.data.split(":")[1])
     
-    # 🗑 Matnli edit_text qilingan xabarni butunlay o'chirib tashlaymiz
     try:
         await callback.message.delete()
     except:
         pass
         
-    # Qayta yuborish uchun callback datani o'zgartiramiz va bosh menyu handlerini chaqiramiz
-    callback.data = f"edit_anime:{anime_id}"
+    # 🔥 Pydantic frozen xatosini chetlab o'tish uchun model_copy dan foydalanamiz
+    cloned_callback = callback.model_copy(update={"data": f"edit_anime:{anime_id}"})
+    
     from handlers.admin_panel.admin_anime.edit_anime import process_edit_anime_menu
-    await process_edit_anime_menu(callback, session)
+    await process_edit_anime_menu(cloned_callback, session)
