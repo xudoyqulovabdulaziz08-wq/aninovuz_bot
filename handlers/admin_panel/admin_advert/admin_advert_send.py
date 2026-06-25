@@ -61,9 +61,8 @@ async def process_admin_advert_menu(callback: CallbackQuery):
 async def process_select_advert_target(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     
-    target_group = callback.data.split(":")[1] # all, vip, user, admin
+    target_group = callback.data.split(":")[1]
     
-    # Guruh nomini chiroyli matnga o'tkazamiz
     group_titles = {
         "all": "🌍 Hammaga (User, VIP, Admin)",
         "vip": "💎 Faqat VIP foydalanuvchilarga",
@@ -72,18 +71,22 @@ async def process_select_advert_target(callback: CallbackQuery, state: FSMContex
     }
     title = group_titles.get(target_group, target_group)
     
-    # Ma'lumotlarni holatda saqlaymiz
-    await state.update_data(target_group=target_group, group_title=title)
+    # 🔥 HIYLA: Keyingi qadamda edit qilish uchun shu xabar ID sini saqlaymiz
+    await state.update_data(
+        target_group=target_group, 
+        group_title=title, 
+        main_msg_id=callback.message.message_id
+    )
     await state.set_state(AdminAdvertSG.waiting_for_ad)
     
     cancel_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="admin_advert", style="danger")]
+        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_advert", style="danger")]
     ])
     
     await callback.message.edit_text(
         text=f"🎯 Target guruh: <b>{title}</b>\n\n"
-             f"📥 <b>Iltimos, yubormoqchi bo'lgan reklama xabaringizni yuboring.</b>\n"
-             f"<i>(Matn, rasm, video, albom, hujjat yoki inline tugmali xabar bo'lishi mumkin. Bot uni qanday bo'lsa shunday nusxalaydi)</i>",
+             f"📥 <b>Iltimos, yubormoqchi bo'lgan reklama xabaringizni shu yerga yuboring...</b>\n\n"
+             f"<i>(Rasm, video, matn yoki xohlagan formatingizni yuborsangiz, bot chatni tozalab, bitta xabarda davom ettiradi)</i>",
         reply_markup=cancel_kb,
         parse_mode="HTML"
     )
@@ -91,15 +94,21 @@ async def process_select_advert_target(callback: CallbackQuery, state: FSMContex
 
 
 
-
 @router.message(AdminAdvertSG.waiting_for_ad)
 async def process_receive_advert_message(message: Message, state: FSMContext):
+    data = await state.get_data()
+    main_msg_id = data.get("main_msg_id")
+    title = data.get("group_title")
+    
     # Admin yuborgan xabarning ID sini va Chat ID sini saqlaymiz
     await state.update_data(ad_message_id=message.message_id, ad_chat_id=message.chat.id)
     
-    data = await state.get_data()
-    title = data.get("group_title")
-    
+    # 🔥 UX TOZALIK: Admin yuborgan xabarni chatdan o'chirib tashlaymiz!
+    try:
+        await message.delete()
+    except Exception:
+        pass # Agar o'chirishda xatolik bo'lsa bot to'xtab qolmasligi uchun
+        
     confirm_kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="✅ Ha, tarqatilsin", callback_data="adv_confirm:yes", style="primary"),
@@ -107,10 +116,13 @@ async def process_receive_advert_message(message: Message, state: FSMContext):
         ]
     ])
     
-    # Admin yuborgan xabarga javob (reply) tariqasida tasdiqlash so'raymiz
-    await message.reply(
+    # Yangi xabar yubormasdan, saqlangan asosiy oynani tahrirlaymiz!
+    await message.bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=main_msg_id,
         text=f"❓ <b>Reklamani tasdiqlash:</b>\n\n"
-             f"Ushbu xabarni <b>{title}</b> guruhidagi barcha foydalanuvchilarga tarqatishni tasdiqlaysizmi?",
+             f"Target guruh: <b>{title}</b>\n\n"
+             f"Siz yuborgan reklama xabari qabul qilindi. Ushbu xabarni guruhdagi barcha foydalanuvchilarga tarqatishni tasdiqlaysizmi?",
         reply_markup=confirm_kb,
         parse_mode="HTML"
     )
@@ -122,35 +134,28 @@ async def process_receive_advert_message(message: Message, state: FSMContext):
 
 
 
-
 @router.callback_query(F.data.startswith("adv_confirm:"))
-async def process_final_advert_decision(
-    callback: CallbackQuery, 
-    state: FSMContext, 
-    user_service: UserService  # Middleware beradigan tayyor servis
-):
+async def process_final_advert_decision(callback: CallbackQuery, state: FSMContext, user_service: UserService):
     decision = callback.data.split(":")[1]
     
     if decision == "no":
-        await callback.answer("Reklama yuborish bekor qilindi.")
+        await callback.answer("Reklama bekor qilindi.")
         await state.clear()
         await callback.message.edit_text(
-            text="❌ <b>Reklama yuborish bekor qilindi.</b>\nAsosiy admin panelga qaytishingiz mumkin.",
+            text="❌ <b>Reklama yuborish bekor qilindi.</b>\nPanel toza saqlandi.",
             parse_mode="HTML"
         )
         return
 
-    # FSM ma'lumotlarini o'qiymiz
     data = await state.get_data()
     target_group = data.get("target_group")
     ad_message_id = data.get("ad_message_id")
     ad_chat_id = data.get("ad_chat_id")
     
     await callback.answer("🚀 Tarqatish boshlandi!", show_alert=False)
-    await state.clear() # FSMni darhol tozalaymiz
+    await state.clear()
     
-    # 🔥 MUKAMMAL VA QISQA YECHIM: asyncio.create_task
-    # UserService ichidagi tayyor metodni asinxron fonda chaqiramiz
+    # Orqa fonda (background) UserService orqali yuborishni ishga tushiramiz
     asyncio.create_task(
         user_service.broadcast_advert_in_background(
             bot=callback.bot,
@@ -160,14 +165,13 @@ async def process_final_advert_decision(
         )
     )
     
-    # Adminga silliq va tezkor javob qaytaramiz
+    # Aynan o'sha xabarning o'zini yakuniy statusga edit qilamiz!
     await callback.message.edit_text(
         text="🚀 <b>Reklama orqa fonda tarqatila boshladi!</b>\n\n"
              "Bot foydalanuvchilarga odatiy rejimda xizmat ko'rsatishda davom etadi. "
-             "Tarqatish yakunlangach, sizga yakuniy hisobot xabari yuboriladi.",
+             "Tarqatish yakunlangach, shu yerda sizga hisobot chiqadi.",
         parse_mode="HTML"
     )
-
 # 6. Har qanday vaqtda bekor qilish handler'i
 @router.callback_query(F.data == "cancel_advert")
 async def process_cancel_advert_global(callback: CallbackQuery, state: FSMContext):
