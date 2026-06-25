@@ -32,7 +32,8 @@ from handlers.admin_panel.admin_advert import(
     admin_advet_menu
 )
 from handlers.admin_panel.admin_vip import(
-    admin_vip_menu
+    admin_vip_menu,
+    add_vip
 )
 
 from handlers.search_menu import(
@@ -70,6 +71,7 @@ main_router.include_routers(
     del_episode.router,
     channel_anime.router,
     edit_anime.router,
+    add_vip.router,
     
     add_channel.router,
     list_channel.router,
