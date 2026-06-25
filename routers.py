@@ -33,7 +33,8 @@ from handlers.admin_panel.admin_advert import(
 )
 from handlers.admin_panel.admin_vip import(
     admin_vip_menu,
-    add_vip
+    add_vip,
+    list_vip
 )
 
 from handlers.search_menu import(
@@ -72,10 +73,11 @@ main_router.include_routers(
     channel_anime.router,
     edit_anime.router,
     add_vip.router,
-    
+    list_vip.router,
     add_channel.router,
     list_channel.router,
     anime_card.router,
+    
     qollanma.router,
     reklama.router,
     buy_vip.router,
