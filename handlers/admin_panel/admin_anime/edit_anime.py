@@ -14,6 +14,7 @@ class EditAnimeStates(StatesGroup):
     waiting_for_new_lang = State()       # 🌐 Yangi tilni kiritish holati
     waiting_for_new_desc = State()       # 📝 Yangi tasnifni kiritish holati
     waiting_for_new_year = State()       # 📅 Yangi yilni kiritish holati
+    waiting_for_new_poster = State()     # 🖼 Yangi poster qabul qilish holati
     waiting_for_confirmation = State()   # Ha/Yo'q tasdiqlash holati
 
 
@@ -729,6 +730,155 @@ async def save_or_cancel_anime_year(callback: CallbackQuery, state: FSMContext, 
     
     await callback.message.edit_caption(
         caption=f"✅ <b>Anime chiqish yili muvaffaqiyatli o'zgartirildi!</b>\n\n📅 Yangi yil: <code>{new_year}</code>",
+        reply_markup=success_kb,
+        parse_mode="HTML"
+    )
+    await state.clear()
+
+
+
+
+
+
+
+
+
+
+
+
+# =====================================================================
+# 📑 1-QADAM: "🖼 Poster" tugmasi bosilganda holatga (State) o'tkazish
+# =====================================================================
+@router.callback_query(F.data.startswith("edit_field:poster:"))
+async def edit_anime_poster_start(callback: CallbackQuery, state: FSMContext):
+    anime_id = int(callback.data.split(":")[2])
+    
+    # Kelajakda o'chirish yoki tahrirlash uchun ID larni saqlaymiz
+    await state.update_data(edit_anime_id=anime_id, main_msg_id=callback.message.message_id)
+    
+    # State-ni poster kutish holatiga o'tkazamiz
+    await state.set_state(EditAnimeStates.waiting_for_new_poster)
+    
+    text = (
+        "🖼 <b>Yangi anime posterini (rasm) yuklash:</b>\n\n"
+        "Iltimos, animening yangi posterini botga rasm (Photo) ko'rinishida yuboring.\n"
+        "<i>(Eslatma: Rasm fayl (Document) shaklida emas, oddiy rasm formatida bo'lsin!)</i>"
+    )
+    
+    await callback.answer("Poster tahrirlash boshlandi")
+    try:
+        # Asosiy xabar caption matnini o'zgartirib yo'riqnomani ko'rsatamiz
+        await callback.message.edit_caption(caption=text, reply_markup=None, parse_mode="HTML")
+    except TelegramBadRequest:
+        pass
+
+
+# =====================================================================
+# 📑 2-QADAM: Admin yangi rasm yuborganda uni ushlash va tasdiqlash so'rash
+# =====================================================================
+@router.message(EditAnimeStates.waiting_for_new_poster, F.photo)
+async def process_new_anime_poster(message: Message, state: FSMContext):
+    # Eng yuqori sifatli rasm file_id sini olamiz
+    new_poster_id = message.photo[-1].file_id
+    state_data = await state.get_data()
+    
+    anime_id = state_data.get("edit_anime_id")
+    main_msg_id = state_data.get("main_msg_id")
+    
+    # ❌ ADMIN YUBORGAN RASMNI O'CHIRMAYMIZ (Telegram serverida yaroqli qolishi uchun)
+    # 🗑 Lekin tepadagi bot yuborgan yo'riqnoma xabarini butunlay o'chirib tashlaymiz
+    try:
+        await message.bot.delete_message(chat_id=message.chat.id, message_id=main_msg_id)
+    except Exception:
+        pass
+        
+    # Yangi rasm ID sini state-ga saqlaymiz
+    await state.update_data(new_anime_poster=new_poster_id)
+    
+    # Tasdiqlash tugmalari
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_poster_edit:yes"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_poster_edit:no")
+        ]
+    ])
+    
+    confirm_text = "❓ <b>Ushbu rasm anime uchun yangi poster etib belgilansinmi?</b>"
+    
+    # Yangi xabar qilib pastdan tasdiqlash uchun rasm ko'rinishida yuboramiz
+    await state.set_state(EditAnimeStates.waiting_for_confirmation)
+    
+    # Bu yangi yuborilgan tasdiqlash xabarining ID sini ham saqlab qo'yamiz (oxirida tozalash uchun)
+    confirm_msg = await message.reply_photo(
+        photo=new_poster_id,
+        caption=confirm_text,
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+    await state.update_data(confirm_msg_id=confirm_msg.message_id)
+
+
+# =====================================================================
+# 📑 3-QADAM: Poster tasdiqlanganda (Ha yoki Yo'q) bosilishi
+# =====================================================================
+@router.callback_query(EditAnimeStates.waiting_for_confirmation, F.data.startswith("confirm_poster_edit:"))
+async def save_or_cancel_anime_poster(callback: CallbackQuery, state: FSMContext, session: Any):
+    action = callback.data.split(":")[1]
+    state_data = await state.get_data()
+    
+    anime_id = state_data.get("edit_anime_id")
+    new_poster = state_data.get("new_anime_poster")
+    confirm_msg_id = state_data.get("confirm_msg_id")
+    
+    # ❌ AGAR ADMIN "YO'Q" DEB BEKOR QILSA
+    if action == "no":
+        await callback.answer("Tahrirlash bekor qilindi.", show_alert=True)
+        await state.clear()
+        
+        # Bot yuborgan tasdiqlash xabarini o'chiramiz
+        try:
+            await callback.message.delete()
+        except:
+            pass
+            
+        # Toza nusxa bilan to'g'ridan-to'g'ri bosh tahrirlash menyusini qayta yuboramiz
+        cloned_callback = callback.model_copy(update={"data": f"edit_anime:{anime_id}"})
+        from handlers.admin_panel.admin_anime.edit_anime import process_edit_anime_menu
+        await process_edit_anime_menu(cloned_callback, session)
+        return
+
+    # ✅ AGAR ADMIN "HA" DEB TASDIQLASA
+    await callback.answer("Poster yangilanmoqda...")
+    
+    try:
+        service = AnimeService(session=session)
+        # Sadoqatli universal update_anime funksiyangiz orqali 'image' ustunini yangilaymiz
+        success = await service.update_anime(
+            anime_id=anime_id, 
+            update_data={"image": new_poster}
+        )
+    except Exception as e:
+        logger.error(f"DB Update Poster error: {e}")
+        success = False
+
+    if not success:
+        await callback.message.edit_caption(
+            caption="❌ <b>Xatolik:</b> Posterni saqlashda texnik xato yuz berdi.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="⚙️ Tahrirlash bo'limiga qaytish", callback_data=f"force_refresh_edit:{anime_id}")
+            ]]),
+            parse_mode="HTML"
+        )
+        await state.clear()
+        return
+
+    # Muvaffaqiyatli xabar va refresh tugmasi
+    success_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}")]
+    ])
+    
+    await callback.message.edit_caption(
+        caption="✅ <b>Anime posteri muvaffaqiyatli o'zgartirildi va saqlandi!</b>",
         reply_markup=success_kb,
         parse_mode="HTML"
     )
