@@ -229,8 +229,9 @@ async def process_view_vip_details(callback: CallbackQuery, session: Any):
              f"🎭 <b>Username:</b> @{username if username != 'Foydalanuvchi' else '—'}\n"
              f"📅 <b>Tugash sanasi (UTC):</b> <code>{formatted_expire_date}</code>\n"
              f"⏱ <b>Qolgan vaqt:</b> {time_left_str}\n\n"
-             f"✨ Foydalanuvchi ustida bajariladigan amalni tanlang:"
-             f"⚠️ Eslatib otamiz vaqt mintaqasi bizning soatdan 5 soat orqada bu bilan hech qanday muddat qoshmaydi yoki muddat kamaymaydi",
+             f"⚠️ Eslatib otamiz vaqt mintaqasi bizning soatdan 5 soat orqada bu bilan hech qanday muddat qoshmaydi yoki muddat kamaymaydi\n"
+             f"✨ Foydalanuvchi ustida bajariladigan amalni tanlang:",
+             
         reply_markup=vip_manage_kb,
         parse_mode="HTML"
     )
