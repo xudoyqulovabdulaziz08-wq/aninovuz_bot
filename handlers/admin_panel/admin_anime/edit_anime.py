@@ -12,6 +12,7 @@ from services.anime_service import AnimeService
 class EditAnimeStates(StatesGroup):
     waiting_for_new_name = State()       # Yangi nomni kiritish holati
     waiting_for_new_lang = State()          # 🌐 Yangi tilni kiritish holati
+    waiting_for_new_desc = State()       # 📝 Yangi tasnifni kiritish holati
     waiting_for_confirmation = State()   # Ha/Yo'q tasdiqlash holati
 
 
@@ -401,6 +402,158 @@ async def save_or_cancel_anime_lang(callback: CallbackQuery, state: FSMContext, 
     
     await callback.message.edit_caption(
         caption=f"✅ <b>Anime tili muvaffaqiyatli yangilandi!</b>\n\n🌐 Yangi til: <u>{new_lang}</u>",
+        reply_markup=success_kb,
+        parse_mode="HTML"
+    )
+    await state.clear()
+
+
+
+
+
+
+
+
+
+
+
+
+# =====================================================================
+# 📑 1-QADAM: "📝 Tasnif" tugmasi bosilganda holatga (State) o'tkazish
+# =====================================================================
+@router.callback_query(F.data.startswith("edit_field:desc:"))
+async def edit_anime_desc_start(callback: CallbackQuery, state: FSMContext):
+    anime_id = int(callback.data.split(":")[2])
+    
+    # Ma'lumotlarni holat keshiga yozib qo'yamiz
+    await state.update_data(edit_anime_id=anime_id, main_msg_id=callback.message.message_id)
+    
+    # State-ni tasnif kutish holatiga o'tkazamiz
+    await state.set_state(EditAnimeStates.waiting_for_new_desc)
+    
+    text = (
+        "📝 <b>Yangi tasnif (tavsif) kiritish:</b>\n\n"
+        "Iltimos, animening yangi tasnifini botga xabar shaklida yuboring.\n"
+        "<i>(Xohlasangiz uzun matn yuborishingiz mumkin)</i>"
+    )
+    
+    await callback.answer("Tasnif tahrirlash boshlandi")
+    try:
+        await callback.message.edit_caption(caption=text, reply_markup=None, parse_mode="HTML")
+    except TelegramBadRequest:
+        pass
+
+
+# =====================================================================
+# 📑 2-QADAM: Admin yangi tasnif yuborganda uni ushlash va Ha/Yo'q so'rash
+# =====================================================================
+@router.message(EditAnimeStates.waiting_for_new_desc, F.text)
+async def process_new_anime_desc(message: Message, state: FSMContext):
+    new_desc = message.text.strip()
+    state_data = await state.get_data()
+    
+    anime_id = state_data.get("edit_anime_id")
+    main_msg_id = state_data.get("main_msg_id")
+    
+    # 🗑 Toza interfeys uchun admin yuborgan xabarni darhol o'chiramiz
+    try:
+        await message.delete()
+    except Exception:
+        pass
+        
+    # Yangi kiritilgan tasnifni state-ga saqlaymiz
+    await state.update_data(new_anime_desc=new_desc)
+    
+    # Tasdiqlash tugmalari
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_desc_edit:yes"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_desc_edit:no")
+        ]
+    ])
+    
+    # Agar tasnif juda uzun bo'lsa, tasdiqlash oynasi chiroyli ko'rinishi uchun uni qisqartirib ko'rsatamiz
+    preview_desc = new_desc[:200] + "..." if len(new_desc) > 200 else new_desc
+    
+    confirm_text = (
+        f"❓ <b>Anime tasnifi o'zgartirilsinmi?</b>\n\n"
+        f"📝 <b>Yangi tasnif:</b>\n"
+        f"<blockquote expandable>{preview_desc}</blockquote>"
+    )
+    
+    # Tasdiqlash holatiga o'tkazib, tepadagi poster matnini o'zgartiramiz
+    await state.set_state(EditAnimeStates.waiting_for_confirmation)
+    try:
+        await message.bot.edit_message_caption(
+            chat_id=message.chat.id,
+            message_id=main_msg_id,
+            caption=confirm_text,
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Tasnifni tasdiqlash xabarida xato: {e}")
+
+
+# =====================================================================
+# 📑 3-QADAM: Tasnif tasdiqlanganda (Ha yoki Yo'q) bosilishi
+# =====================================================================
+@router.callback_query(EditAnimeStates.waiting_for_confirmation, F.data.startswith("confirm_desc_edit:"))
+async def save_or_cancel_anime_desc(callback: CallbackQuery, state: FSMContext, session: Any):
+    action = callback.data.split(":")[1]
+    state_data = await state.get_data()
+    
+    anime_id = state_data.get("edit_anime_id")
+    new_desc = state_data.get("new_anime_desc")
+    
+    # ❌ AGAR ADMIN "YO'Q" DEB BEKOR QILSA
+    if action == "no":
+        await callback.answer("Tahrirlash bekor qilindi.", show_alert=True)
+        await state.clear()
+        
+        try:
+            await callback.message.delete()
+        except:
+            pass
+            
+        # Pydantic muzlatilgan ob'ekt xatosini chetlab o'tib, toza nusxa bilan bosh menyuga qaytamiz
+        cloned_callback = callback.model_copy(update={"data": f"edit_anime:{anime_id}"})
+        from handlers.admin_panel.admin_anime.edit_anime import process_edit_anime_menu
+        await process_edit_anime_menu(cloned_callback, session)
+        return
+
+    # ✅ AGAR ADMIN "HA" DEB TASDIQLASA
+    await callback.answer("Bazaga yozilmoqda...")
+    
+    try:
+        service = AnimeService(session=session)
+        # Siz yozgan o'sha universal update_anime funksiyasi orqali 'description' ustunini yangilaymiz
+        success = await service.update_anime(
+            anime_id=anime_id, 
+            update_data={"description": new_desc}
+        )
+    except Exception as e:
+        logger.error(f"DB Update Desc error: {e}")
+        success = False
+
+    if not success:
+        await callback.message.edit_caption(
+            caption="❌ <b>Xatolik:</b> Tasnifni saqlashda texnik xato yuz berdi.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="⚙️ Tahrirlash bo'limiga qaytish", callback_data=f"force_refresh_edit:{anime_id}")
+            ]]),
+            parse_mode="HTML"
+        )
+        await state.clear()
+        return
+
+    # Muvaffaqiyatli xabar va refresh tugmasi
+    success_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}")]
+    ])
+    
+    await callback.message.edit_caption(
+        caption="✅ <b>Anime tasnifi muvaffaqiyatli yangilandi!</b>",
         reply_markup=success_kb,
         parse_mode="HTML"
     )
