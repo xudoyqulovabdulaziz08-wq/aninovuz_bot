@@ -52,10 +52,8 @@ async def admin_menu(event: Message | CallbackQuery, user: dict):
                 [
                     InlineKeyboardButton(text="📊 Statistika", callback_data="admin_statistics", style="primary"),
                     InlineKeyboardButton(text="Vip 💎", callback_data="admin_vip_panel", style="primary")
-                ],
-                [
-                    InlineKeyboardButton(text="📝 Foydalanuvchilar", callback_data="admin_users")
                 ]
+                
             ]
         )
         
