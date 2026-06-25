@@ -11,6 +11,7 @@ from services.anime_service import AnimeService
 
 class EditAnimeStates(StatesGroup):
     waiting_for_new_name = State()       # Yangi nomni kiritish holati
+    waiting_for_new_lang = State()          # 🌐 Yangi tilni kiritish holati
     waiting_for_confirmation = State()   # Ha/Yo'q tasdiqlash holati
 
 
@@ -255,3 +256,152 @@ async def force_refresh_edit_menu(callback: CallbackQuery, session: Any):
     
     from handlers.admin_panel.admin_anime.edit_anime import process_edit_anime_menu
     await process_edit_anime_menu(cloned_callback, session)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# =====================================================================
+# 📑 1-QADAM: "🌐 Tili" tugmasi bosilganda holatga (State) o'tkazish
+# =====================================================================
+@router.callback_query(F.data.startswith("edit_field:lang:"))
+async def edit_anime_lang_start(callback: CallbackQuery, state: FSMContext):
+    anime_id = int(callback.data.split(":")[2])
+    
+    # Ma'lumotlarni holat keshiga yozib qo'yamiz
+    await state.update_data(edit_anime_id=anime_id, main_msg_id=callback.message.message_id)
+    
+    # State-ni til kutish holatiga o'tkazamiz
+    await state.set_state(EditAnimeStates.waiting_for_new_lang)
+    
+    text = (
+        "🌐 <b>Yangi til (tarjima) formatini kiritish:</b>\n\n"
+        "Iltimos, animening yangi tillarini kiriting (Masalan: <code>O'zbekcha</code> yoki <code>Subtitr</code>).\n"
+        "Matn ko'rinishida botga yuboring:"
+    )
+    
+    await callback.answer("Til tahrirlash boshlandi")
+    try:
+        await callback.message.edit_caption(caption=text, reply_markup=None, parse_mode="HTML")
+    except TelegramBadRequest:
+        pass
+
+
+# =====================================================================
+# 📑 2-QADAM: Admin yangi til yuborganda uni ushlash va Ha/Yo'q so'rash
+# =====================================================================
+@router.message(EditAnimeStates.waiting_for_new_lang, F.text)
+async def process_new_anime_lang(message: Message, state: FSMContext):
+    new_lang = message.text.strip()
+    state_data = await state.get_data()
+    
+    anime_id = state_data.get("edit_anime_id")
+    main_msg_id = state_data.get("main_msg_id")
+    
+    # 🗑 Toza interfeys uchun admin yuborgan xabarni darhol o'chiramiz
+    try:
+        await message.delete()
+    except Exception:
+        pass
+        
+    # Yangi kiritilgan tilni state-ga saqlaymiz
+    await state.update_data(new_anime_lang=new_lang)
+    
+    # Tasdiqlash tugmalari
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_lang_edit:yes"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_lang_edit:no")
+        ]
+    ])
+    
+    confirm_text = (
+        f"❓ <b>Anime tili o'zgartirilsinmi?</b>\n\n"
+        f"🌐 Yangi til ma'lumoti: <u>{new_lang}</u>"
+    )
+    
+    # Tasdiqlash holatiga o'tkazib, tepadagi poster matnini o'zgartiramiz
+    await state.set_state(EditAnimeStates.waiting_for_confirmation)
+    try:
+        await message.bot.edit_message_caption(
+            chat_id=message.chat.id,
+            message_id=main_msg_id,
+            caption=confirm_text,
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Tilni tasdiqlash xabarida xato: {e}")
+
+
+# =====================================================================
+# 📑 3-QADAM: Til tasdiqlanganda (Ha yoki Yo'q) bosilishi
+# =====================================================================
+@router.callback_query(EditAnimeStates.waiting_for_confirmation, F.data.startswith("confirm_lang_edit:"))
+async def save_or_cancel_anime_lang(callback: CallbackQuery, state: FSMContext, session: Any):
+    action = callback.data.split(":")[1]
+    state_data = await state.get_data()
+    
+    anime_id = state_data.get("edit_anime_id")
+    new_lang = state_data.get("new_anime_lang")
+    
+    # ❌ AGAR ADMIN "YO'Q" DESB REJANI BEKOR QILSA
+    if action == "no":
+        await callback.answer("Tahrirlash bekor qilindi.", show_alert=True)
+        await state.clear()
+        
+        try:
+            await callback.message.delete()
+        except:
+            pass
+            
+        # Pydantic muzlatilgan ob'ekt xatosini chetlab o'tib, toza nusxa bilan bosh menyuga qaytamiz
+        cloned_callback = callback.model_copy(update={"data": f"edit_anime:{anime_id}"})
+        from handlers.admin_panel.admin_anime.edit_anime import process_edit_anime_menu
+        await process_edit_anime_menu(cloned_callback, session)
+        return
+
+    # ✅ AGAR ADMIN "HA" DEB TASDIQLASA
+    await callback.answer("Bazaga yozilmoqda...")
+    
+    # Models.py dagi 'languages' ustuniga moslab yangilaymiz.
+    # Agar bazada tillar massiv (List) formatida bo'lsa: [new_lang] ko'rinishida yuboramiz.
+    try:
+        service = AnimeService(session=session)
+        # Loyihangiz arxitekturasidagi ARRAY mosligi uchun [new_lang] formatida saqlaymiz
+        success = await service.update_anime(anime_id=anime_id, update_data={"languages": [new_lang]})
+    except Exception as e:
+        logger.error(f"DB Update Lang error: {e}")
+        success = False
+
+    if not success:
+        await callback.message.edit_caption(
+            caption="❌ <b>Xatolik:</b> Til ma'lumotini saqlashda texnik xato yuz berdi.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="⚙️ Tahrirlash bo'limiga qaytish", callback_data=f"force_refresh_edit:{anime_id}")
+            ]]),
+            parse_mode="HTML"
+        )
+        await state.clear()
+        return
+
+    # Muvaffaqiyatli xabar va refresh tugmasi
+    success_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Tahrirlashga qaytish", callback_data=f"force_refresh_edit:{anime_id}")]
+    ])
+    
+    await callback.message.edit_caption(
+        caption=f"✅ <b>Anime tili muvaffaqiyatli yangilandi!</b>\n\n🌐 Yangi til: <u>{new_lang}</u>",
+        reply_markup=success_kb,
+        parse_mode="HTML"
+    )
+    await state.clear()
