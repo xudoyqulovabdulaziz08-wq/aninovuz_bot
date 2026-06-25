@@ -15,6 +15,7 @@ router = Router()
 
 class AdminVIPStates(StatesGroup):
     wait_for_user_id = State()  # User ID sini kutish holati
+    wait_for_confirmation = State()
 
 
 
@@ -43,7 +44,6 @@ async def process_add_vip_click(callback: CallbackQuery, state: FSMContext):
 
 
 
-@router.callback_query(AdminVIPStates.wait_for_user_id) # Callback bosib yuborsa ham tekshirish uchun
 @router.message(AdminVIPStates.wait_for_user_id, ~F.text.isdigit())
 async def process_invalid_user_id(message: Message):
     cancel_kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -59,10 +59,6 @@ async def process_invalid_user_id(message: Message):
 
 
 
-
-
-
-
   # UserService importi
 
 # 5. To'g'ri ID (faqat raqamlar) kelganda ishlaydigan xavfsiz handler
@@ -70,47 +66,44 @@ async def process_invalid_user_id(message: Message):
 async def process_valid_user_id(message: Message, state: FSMContext, session: Any):
     user_id = int(message.text)
     
-    # 🔍 1. Bazadan foydalanuvchini xavfsiz qidiramiz
     try:
         user_service = UserService(session=session)
-        # Kesh-aware va xavfsiz usulda user ma'lumotlarini olamiz
         user_data = await user_service.get_user(user_id=user_id)
     except Exception as e:
         logger.error(f"VIP tekshiruvida user qidirishda xato: {e}")
         await message.answer("❌ Bazadan foydalanuvchini qidirishda texnik xatolik yuz berdi.")
         return
 
-    # 🛑 2. Agar user bazada umuman mavjud bo'lmasa
     if not user_data:
         cancel_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="admin_vip_panel", style="danger")]
         ])
         await message.answer(
-            text=f"❌ <b>ID: {user_id}</b> raqamli foydalanuvchi tizimda (bot bazasida) mavjud emas!\n"
-                 f"Iltimos, ID raqamni to'g'ri kiritganingizni qayta tekshiring:",
+            text=f"❌ <b>ID: {user_id}</b> raqamli foydalanuvchi tizimda mavjud emas!\n"
+                 f"Iltimos, qayta kiriting:",
             reply_markup=cancel_kb,
             parse_mode="HTML"
         )
         return
 
-    # ✅ 3. Foydalanuvchi topilsa, ID va Ismini saqlab qo'yamiz
+    # ID ni saqlaymiz va adminni "wait_for_confirmation" holatiga o'tkazamiz!
     await state.update_data(target_user_id=user_id)
+    await state.set_state(AdminVIPStates.wait_for_confirmation) # <--- MUHIM QADAM!
     
     username = user_data.get("username") or "Foydalanuvchi"
     current_status = user_data.get("status", "user")
 
-    # 📅 4. Muddat tanlash tugmalarini hosil qilamiz (Callback_data ga oylarni yozamiz)
     duration_kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📅 1 Oylik", callback_data="set_vip_durations:1", style="primary"),
-            InlineKeyboardButton(text="📅 2 Oylik", callback_data="set_vip_durations:2", style="primary")
+            InlineKeyboardButton(text="📅 1 Oylik", callback_data="set_vip_duration:1", style="primary"),
+            InlineKeyboardButton(text="📅 2 Oylik", callback_data="set_vip_duration:2", style="primary")
         ],
         [
-            InlineKeyboardButton(text="📅 3 Oylik", callback_data="set_vip_durations:3", style="primary"),
-            InlineKeyboardButton(text="📅 6 Oylik", callback_data="set_vip_durations:6", style="primary")
+            InlineKeyboardButton(text="📅 3 Oylik", callback_data="set_vip_duration:3", style="primary"),
+            InlineKeyboardButton(text="📅 6 Oylik", callback_data="set_vip_duration:6", style="primary")
         ],
         [
-            InlineKeyboardButton(text="📆 1 Yillik", callback_data="set_vip_durations:12", style="primary")
+            InlineKeyboardButton(text="📆 1 Yillik", callback_data="set_vip_duration:12", style="primary")
         ],
         [
             InlineKeyboardButton(text="❌ Bekor qilish", callback_data="admin_vip_panel", style="danger")
@@ -127,6 +120,131 @@ async def process_valid_user_id(message: Message, state: FSMContext, session: An
         parse_mode="HTML"
     )
 
+
+
+
+
+
+
+
+
+
+
+# 6. Muddat tugmalari bosilganda (Faqat shu holatda ishlaydi)
+@router.callback_query(AdminVIPStates.wait_for_confirmation, F.data.startswith("set_vip_duration:"))
+async def process_set_duration(callback: CallbackQuery, state: FSMContext):
+    months = int(callback.data.split(":")[1])
+    
+    state_data = await state.get_data()
+    target_user_id = state_data.get("target_user_id")
+    
+    if not target_user_id:
+        await callback.answer("🚨 Xatolik: Foydalanuvchi ID topilmadi!", show_alert=True)
+        await state.clear()
+        return
+
+    await state.update_data(selected_months=months)
+    
+    confirm_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Ha", callback_data="confirm_vip_grant:yes", style="success"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_vip_grant:no", style="danger")
+        ]
+    ])
+
+    duration_text = f"{months} oylik" if months < 12 else "1 yillik"
+
+    await callback.message.edit_text(
+        text=f"❓ <b>Tasdiqlash:</b>\n\n"
+             f"Rostdan ham <code>{target_user_id}</code> ID raqamli foydalanuvchini "
+             f"<b>{duration_text}</b> muddatga <b>VIP</b> qilmoqchimisiz?",
+        reply_markup=confirm_kb,
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+
+
+
+
+
+
+
+
+# 7. "Ha" yoki "Yo'q" bosilganda yakuniy amallar
+@router.callback_query(AdminVIPStates.wait_for_confirmation, F.data.startswith("confirm_vip_grant:"))
+async def process_vip_confirmation(callback: CallbackQuery, state: FSMContext, session: Any):
+    decision = callback.data.split(":")[1]
+    
+    state_data = await state.get_data()
+    target_user_id = state_data.get("target_user_id")
+    months = state_data.get("selected_months")
+    
+    await state.clear()
+
+    back_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💎 VIP Panelga qaytish", callback_data="cancel_add_vip")]
+    ])
+
+    if decision == "no":
+        await callback.message.edit_text(
+            text="❌ <b>VIP status berish jarayoni admin tomonidan bekor qilindi.</b>",
+            reply_markup=back_kb,
+            parse_mode="HTML"
+        )
+        await callback.answer()
+        return
+
+    await callback.answer("⏳ VIP status faollashtirilmoqda...", show_alert=False)
+
+    try:
+        days_to_add = months * 30
+        expire_date = datetime.now(timezone.utc) + timedelta(days=days_to_add)
+
+        from sqlalchemy import update
+        stmt = (
+            update(DBUser)
+            .where(DBUser.user_id == target_user_id)
+            .values(status=UserStatus.VIP, vip_expire_date=expire_date)
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+        await cache_manager.invalidate("users", str(target_user_id), broadcast=True)
+        await cache_manager.invalidate("sub_status", str(target_user_id), broadcast=True)
+
+        formatted_date = expire_date.strftime("%d.%m.%Y %H:%M")
+        duration_text = f"{months} oylik" if months < 12 else "1 yillik"
+
+        await callback.message.edit_text(
+            text=f"🚀 <b>Muvaffaqiyatli bajarildi!</b>\n\n"
+                 f"👤 Foydalanuvchi: <code>{target_user_id}</code>\n"
+                 f"💎 Status: <b>VIP ({duration_text})</b>\n"
+                 f"📅 Tugash muddati: <code>{formatted_date}</code> gacha belgilandi.\n\n"
+                 f"<i>Kesh yangilandi.</i>",
+            reply_markup=back_kb,
+            parse_mode="HTML"
+        )
+
+        try:
+            await callback.bot.send_message(
+                chat_id=target_user_id,
+                text=f"🎉 <b>Tabriklaymiz! Admin tomonidan sizga {duration_text} VIP status taqdim etildi!</b>\n"
+                     f"📅 VIP muddati: <code>{formatted_date}</code> gacha faol.",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+    except Exception as db_err:
+        await session.rollback()
+        logger.error(f"❌ VIP status berishda xato: {db_err}")
+        await callback.message.edit_text(
+            text="❌ <b>Texnik xatolik:</b> VIP status berish amalga oshmadi.",
+            reply_markup=back_kb,
+            parse_mode="HTML"
+        )
 
 
 
