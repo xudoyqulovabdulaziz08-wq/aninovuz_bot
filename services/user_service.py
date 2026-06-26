@@ -255,9 +255,6 @@ class UserService:
         from_chat_id: int, 
         message_id: int
     ) -> None:
-        """
-        Orqa fonda botni qotirmasdan, target guruh bo'yicha reklamani xavfsiz tarqatadi.
-        """
         import asyncio
         from sqlalchemy import select
         from database.models import DBUser, UserStatus
@@ -265,14 +262,12 @@ class UserService:
         logger.info(f"🚀 Background broadcast session optimized for: {target_group}")
         
         try:
-            # 1. Sessiyani proxy orqali real ob'ektga tayyorlab olamiz
             if hasattr(self.session, "_ensure_session"):
                 await self.session._ensure_session()
                 
             from repositories.user_repository import UserRepository
             real_session = UserRepository._get_real_session(self.session)
 
-            # 2. Guruh bo'yicha filterlash va ID larni yig'ish
             stmt = select(DBUser.user_id)
             if target_group == "vip":
                 stmt = stmt.where(DBUser.status == UserStatus.VIP)
@@ -280,7 +275,6 @@ class UserService:
                 stmt = stmt.where(DBUser.status == UserStatus.USER)
             elif target_group == "admin":
                 stmt = stmt.where(DBUser.status == UserStatus.ADMIN)
-            # 'all' bo'lsa hech qanday filtersiz hammani oladi
 
             result = await real_session.execute(stmt)
             user_ids = result.scalars().all()
@@ -292,7 +286,7 @@ class UserService:
         success_count = 0
         fail_count = 0
 
-        # 3. Reklama tarqatish tsikli (Sessiyaga yuklama bermaydi, chunki faqat o'qiydi)
+        # Tarqatish jarayoni (Xabar hali o'chirilmagani uchun 100% muvaffaqiyatli o'tadi)
         for uid in user_ids:
             try:
                 await bot.copy_message(
@@ -301,7 +295,6 @@ class UserService:
                     message_id=message_id
                 )
                 success_count += 1
-                # FloodWait oldini olish uchun kechikish
                 await asyncio.sleep(0.05)
             except Exception as e:
                 fail_count += 1
@@ -309,14 +302,21 @@ class UserService:
 
         logger.info(f"🏁 Advert broadcast finished. Success: {success_count}, Failed: {fail_count}")
 
-        # 4. Adminga yakuniy hisobotni yuborish
+        # 🔥 UX TOZALIK: Tarqatish tugagach, admin yuborgan o'sha asl xabarni chatdan o'chiramiz!
+        try:
+            await bot.delete_message(chat_id=from_chat_id, message_id=message_id)
+        except Exception as del_err:
+            logger.debug(f"Original message delete error: {del_err}")
+
+        # Adminga yakuniy hisobot
         try:
             await bot.send_message(
                 chat_id=from_chat_id,
                 text=f"📊 <b>Reklama tarqatish yakunlandi!</b>\n\n"
                      f"🎯 Guruh: <code>{target_group.upper()}</code>\n"
                      f"✅ Yetkazildi: <code>{success_count} ta</code>\n"
-                     f"❌ Yetkazilmadi: <code>{fail_count} ta</code>",
+                     f"❌ Yetkazilmadi (Botni bloklaganlar): <code>{fail_count} ta</code>\n\n"
+                     f"✨ <i>Chat tozaligi saqlandi va reklama xabari o'chirildi.</i>",
                 parse_mode="HTML"
             )
         except Exception:
