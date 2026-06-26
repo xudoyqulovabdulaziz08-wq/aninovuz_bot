@@ -24,10 +24,11 @@ async def buy_vip_menu(callback: CallbackQuery, user_service: UserService):
     # 📝 2. Umumiy imtiyozlar matni (Har ikkala status uchun ham ko'rinadi)
     benefits_text = (
         "👑 <b>VIP IMTIYOZLAR:</b>\n"
-        "━ 🎬 Premyeralarni hammadan birinchi ko'rish\n"
-        "━ 🚀 Yuqori tezlikda cheklovsiz yuklab olish\n"
-        "━ 🚫 Mutlaqo reklamasiz botdan foydalanish\n"
-        "━ 🎧 Eksklyuziv funksiyalardan foydalanish\n\n"
+        "<blockquote expandable> 🎬 Premyeralarni hammadan birinchi ko'rish</blockquote>\n"
+        "<blockquote expandable> 🚀 Animelarni  cheklovsiz yuklab olish </blockquote>\n"
+        "<blockquote expandable> 🚫 Mutlaqo reklamasiz botdan foydalanish </blockquote>\n"
+        "<blockquote expandable> 🛑 Animelarni cheklovsiz boshqalar yubora olish </blockquote>\n"
+        "<blockquote expandable>🎧 Eksklyuziv funksiyalardan foydalanish</blockquote>\n\n"
     )
     
     # 🎰 3. Statusga qarab dinamik matn va klaviaturani shakllantiramiz
@@ -61,7 +62,7 @@ async def buy_vip_menu(callback: CallbackQuery, user_service: UserService):
             "╚═════════ 💎 ═════════╝\n\n"
             f"👤 Status: <code>👤 Oddiy foydalanuvchi</code>\n\n"
             f"{benefits_text}"
-            "💵 <i>VIP obuna narxi: 1 oy uchun 15,000 so'm.</i>\n\n"
+            
             "⚠️ Sizda VIP status faol emas. Obuna bo'lishni xohlaysizmi?"
         )
         # Oddiy foydalanuvchilar uchun sotib olish tugmasi
