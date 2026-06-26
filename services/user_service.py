@@ -246,78 +246,30 @@ class UserService:
     
 
     # ==================================================
-    # 📢 BACKGROUND ADVERT BROADCAST (SAFE ENGINE)
+    # 🎯 GET USER IDS FOR ADVERTISEMENT (SAFE ENGINE)
     # ==================================================
-    async def broadcast_advert_in_background(
-        self, 
-        bot: Any, 
-        target_group: str, 
-        from_chat_id: int, 
-        message_id: int
-    ) -> None:
-        import asyncio
+    async def get_target_user_ids(self, target_group: str) -> list[int]:
+        """
+        Target guruh bo'yicha foydalanuvchilar ID ro'yxatini qaytaradi.
+        Hech qanday Aiogram drayverlariga bog'liq bo'lmagan toza biznes mantiqi.
+        """
         from sqlalchemy import select
         from database.models import DBUser, UserStatus
+        from repositories.user_repository import UserRepository
 
-        logger.info(f"🚀 Background broadcast session optimized for: {target_group}")
-        
-        try:
-            if hasattr(self.session, "_ensure_session"):
-                await self.session._ensure_session()
-                
-            from repositories.user_repository import UserRepository
-            real_session = UserRepository._get_real_session(self.session)
-
-            stmt = select(DBUser.user_id)
-            if target_group == "vip":
-                stmt = stmt.where(DBUser.status == UserStatus.VIP)
-            elif target_group == "user":
-                stmt = stmt.where(DBUser.status == UserStatus.USER)
-            elif target_group == "admin":
-                stmt = stmt.where(DBUser.status == UserStatus.ADMIN)
-
-            result = await real_session.execute(stmt)
-            user_ids = result.scalars().all()
+        if hasattr(self.session, "_ensure_session"):
+            await self.session._ensure_session()
             
-        except Exception as e:
-            logger.error(f"❌ Error fetching users for advertisement: {e}")
-            return
+        real_session = UserRepository._get_real_session(self.session)
+        stmt = select(DBUser.user_id)
 
-        success_count = 0
-        fail_count = 0
+        if target_group == "vip":
+            stmt = stmt.where(DBUser.status == UserStatus.VIP)
+        elif target_group == "user":
+            stmt = stmt.where(DBUser.status == UserStatus.USER)
+        elif target_group == "admin":
+            stmt = stmt.where(DBUser.status == UserStatus.ADMIN)
+        # 'all' bo'lsa hech qanday filtersiz barchasini oladi
 
-        # Tarqatish jarayoni (Xabar hali o'chirilmagani uchun 100% muvaffaqiyatli o'tadi)
-        for uid in user_ids:
-            try:
-                await bot.copy_message(
-                    chat_id=uid,
-                    from_chat_id=from_chat_id,
-                    message_id=message_id
-                )
-                success_count += 1
-                await asyncio.sleep(0.05)
-            except Exception as e:
-                fail_count += 1
-                logger.debug(f"Could not send ad to {uid}: {e}")
-
-        logger.info(f"🏁 Advert broadcast finished. Success: {success_count}, Failed: {fail_count}")
-
-        # 🔥 UX TOZALIK: Tarqatish tugagach, admin yuborgan o'sha asl xabarni chatdan o'chiramiz!
-        try:
-            await bot.delete_message(chat_id=from_chat_id, message_id=message_id)
-        except Exception as del_err:
-            logger.debug(f"Original message delete error: {del_err}")
-
-        # Adminga yakuniy hisobot
-        try:
-            await bot.send_message(
-                chat_id=from_chat_id,
-                text=f"📊 <b>Reklama tarqatish yakunlandi!</b>\n\n"
-                     f"🎯 Guruh: <code>{target_group.upper()}</code>\n"
-                     f"✅ Yetkazildi: <code>{success_count} ta</code>\n"
-                     f"❌ Yetkazilmadi (Botni bloklaganlar): <code>{fail_count} ta</code>\n\n"
-                     f"✨ <i>Chat tozaligi saqlandi va reklama xabari o'chirildi.</i>",
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
+        result = await real_session.execute(stmt)
+        return list(result.scalars().all())
