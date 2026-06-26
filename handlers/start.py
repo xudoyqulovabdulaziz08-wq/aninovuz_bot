@@ -35,7 +35,7 @@ async def send_or_edit_start_menu(target: Message | CallbackQuery, user_id: int,
                 InlineKeyboardButton(text="Reklama berish 📢", callback_data="advertise", style="primary"),
                 InlineKeyboardButton(text="Qo'llanma 📖", callback_data="guide", style="primary")
             ],
-            [InlineKeyboardButton(text="VIP olish 💎", callback_data="buy_vip", style="success")],
+            [InlineKeyboardButton(text="VIP 💎", callback_data="buy_vip", style="success")],
             [InlineKeyboardButton(text="💬 Yordam", callback_data="support", style="danger")]
         ]
     )
