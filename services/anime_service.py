@@ -316,16 +316,4 @@ class AnimeService:
             return False
 
 
-    # ==================================================
-    # 📊 GET DB DISK SPACE
-    # ==================================================
-    async def get_database_storage_info(self) -> str:
-        """
-        Bazaning diskda egallagan real hajmini qaytaradi.
-        """
-        try:
-            if hasattr(self.session, "_ensure_session"):
-                await self.session._ensure_session()
-            return await self.repo.get_db_size(self.session)
-        except Exception:
-            return "Noma'lum"
+    
