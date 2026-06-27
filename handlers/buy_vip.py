@@ -58,7 +58,7 @@ async def buy_vip_menu(callback: CallbackQuery, user_service: UserService):
             "✨ <i>Obunangizni muddatidan oldin uzaytirishingiz ham mumkin:</i>"
         )
         # VIP foydalanuvchilar uchun uzaytirish tugmasi
-        inline_keyboard.append([InlineKeyboardButton(text="🔄 VIP Obunani uzaytirish", callback_data="purchase_vip")])
+        inline_keyboard.append([InlineKeyboardButton(text="🔄 VIP Obunani uzaytirish", callback_data="purchase_vip", style="primary")])
     else:
         text = (
             "╔═════════ 💎 ═════════╗\n"
@@ -70,10 +70,10 @@ async def buy_vip_menu(callback: CallbackQuery, user_service: UserService):
             "⚠️ Sizda VIP status faol emas. Obuna bo'lishni xohlaysizmi?"
         )
         # Oddiy foydalanuvchilar uchun sotib olish tugmasi
-        inline_keyboard.append([InlineKeyboardButton(text="💳 VIP Sotib olish", callback_data="purchase_vip")])
+        inline_keyboard.append([InlineKeyboardButton(text="💳 VIP Sotib olish", callback_data="purchase_vip", style="primary")])
         
     # ⬅️ Har doim eng tagida turadigan ORQAGA tugmasi
-    inline_keyboard.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="back_to_start")])
+    inline_keyboard.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="back_to_start", style="danger")])
     
     kb = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
     
@@ -133,19 +133,19 @@ async def vip_payed(callback: CallbackQuery, user_service: UserService):
     # 🎛 4. To'g'ri va vizual jihatdan chiroyli inline klaviatura (List strukturasi)
     inline_keyboard = [
         [
-            InlineKeyboardButton(text="📅 1 oylik", callback_data="purchases_vip:1"),
-            InlineKeyboardButton(text="📅 2 oylik", callback_data="purchases_vip:2")
+            InlineKeyboardButton(text="📅 1 oylik", callback_data="purchases_vip:1", style="primary"),
+            InlineKeyboardButton(text="📅 2 oylik", callback_data="purchases_vip:2", style="primary")
         ],
         [
-            InlineKeyboardButton(text="📅 3 oylik", callback_data="purchases_vip:3"),
-            InlineKeyboardButton(text="📅 6 oylik", callback_data="purchases_vip:6")
+            InlineKeyboardButton(text="📅 3 oylik", callback_data="purchases_vip:3", style="primary"),
+            InlineKeyboardButton(text="📅 6 oylik", callback_data="purchases_vip:6", style="primary")
         ],
         [
-            InlineKeyboardButton(text="👑 1 yillik (Eng zo'ri)", callback_data="purchases_vip:12")
+            InlineKeyboardButton(text="👑 1 yillik (Eng zo'ri)", callback_data="purchases_vip:12", style="primary")
         ],
         [
             # Boyagi buy_vip menyusiga (ortga) qaytarish tugmasi
-            InlineKeyboardButton(text="⬅️ Orqaga", callback_data="buy_vip")
+            InlineKeyboardButton(text="⬅️ Orqaga", callback_data="buy_vip", style="danger")
         ]
     ]
     
@@ -219,11 +219,11 @@ async def process_vip_checkout(callback: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             # Bu tugma bosilganda telegram avtomatik admin bilan chatni ochadi va pastdagi yozuv tayyor turadi
-            InlineKeyboardButton(text="💬 Admin bilan bog'lanish", url=admin_url)
+            InlineKeyboardButton(text="💬 Admin bilan bog'lanish", url=admin_url, style="success")
         ],
         [
             # Tariflar bo'limiga qaytarish
-            InlineKeyboardButton(text="⬅️ Tariflarga qaytish", callback_data="purchase_vip")
+            InlineKeyboardButton(text="⬅️ Tariflarga qaytish", callback_data="purchase_vip", style="danger")
         ]
     ])
     
