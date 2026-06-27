@@ -365,3 +365,18 @@ class UserService:
             return await self.repo.get_db_size(self.session)
         except Exception:
             return "Noma'lum"
+        
+
+    # ==================================================
+    # 🧹 CLEAN OUTBOX LOGS
+    # ==================================================
+    async def clean_outbox_events(self) -> int:
+        try:
+            deleted_count = await self.repo.clear_processed_outbox(self.session)
+            await self.session.commit()
+            logger.info(f"🧹 Cleaned {deleted_count} processed outbox events.")
+            return deleted_count
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"❌ Failed to clear outbox events: {e}")
+            raise e

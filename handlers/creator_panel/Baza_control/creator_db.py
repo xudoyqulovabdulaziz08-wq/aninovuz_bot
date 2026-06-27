@@ -44,6 +44,9 @@ async def creator_db_menu(callback: CallbackQuery, user_service: UserService):
                 InlineKeyboardButton(text="🔄 Statni yangilash", callback_data="creator_db_panel", style="primary")
             ],
             [
+                InlineKeyboardButton(text="🗑️  OutboxEvent tozalash", callback_data="outboxevent_clear", style="primary")
+            ],
+            [
                 InlineKeyboardButton(text="🗑️ Bazani toliq tozalash (Clear)", callback_data="baza_clear", style="danger")
             ],
             [
@@ -72,3 +75,58 @@ async def creator_db_menu(callback: CallbackQuery, user_service: UserService):
             logger.error(f"❌ Baza bo'limida Telegram xatoligi: {e}")
     except Exception as e:
         logger.error(f"❌ Baza bo'limida kutilmagan xatolik: {e}")
+
+
+
+    
+    # =========================================================
+# 1. 🗑️ OUTBOX TOZALASH TUGMASI BOSILGANDA (TASDIQLASH)
+# =========================================================
+@router.callback_query(F.data == "outboxevent_clear")
+async def confirm_outbox_clear_request(callback: CallbackQuery):
+    await callback.answer()
+    
+    text = (
+        f"❓ {html.bold('OutboxEvent loglarini tozalash')}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"Rostdan ham tizimda qayta ishlab bo‘lingan barcha kesh va sinxronizatsiya loglarini o‘chirmoqchimisiz?\n\n"
+        f"ℹ️ {html.italic('Bu amal faqat muvaffaqiyatli yakunlangan loglarni o‘chiradi, asosiy kontent (anime, qism, user) larga mutlaqo zarar yetkazmaydi hamda bazada ancha joy ochadi.')}"
+    )
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Ha, tozalansin", callback_data="confirm_outbox:yes", style="primary"),
+            InlineKeyboardButton(text="❌ Yo‘q, bekor qilish", callback_data="creator_db_panel", style="danger")
+        ]
+    ])
+    
+    await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="HTML")
+
+
+# =========================================================
+# 2. ⚡ YAKUNIY TOZALASH AMALI (HA / YO'Q)
+# =========================================================
+@router.callback_query(F.data.startswith("confirm_outbox:"))
+async def finalize_outbox_clear(callback: CallbackQuery, user_service: UserService):
+    await callback.answer()
+    
+    decision = callback.data.split(":")[1]
+    
+    back_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Baza paneliga qaytish", callback_data="creator_db_panel", style="danger")]
+    ])
+    
+    if decision == "yes":
+        # Servis orqali eski loglarni tozalaymiz
+        count = await user_service.clean_outbox_events()
+        
+        text = (
+            f"🧹 {html.bold('Tozalash yakunlandi!')}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"Vazifasini bajarib bo‘lgan jami {html.code(count)} ta OutboxEvent loglari bazadan muvaffaqiyatli o‘chirib tashlandi.\n\n"
+            f"📉 Baza diski yengillashdi va xavfsizlik ta'minlandi."
+        )
+    else:
+        text = f"❌ {html.bold('Tozalash amali bekor qilindi.')}\n\nHech qanday log o‘chirilmadi."
+
+    await callback.message.edit_text(text=text, reply_markup=back_kb, parse_mode="HTML")

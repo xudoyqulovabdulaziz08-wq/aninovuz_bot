@@ -261,3 +261,19 @@ class UserRepository:
         except Exception as e:
             logger.error(f"❌ Baza hajmini hisoblashda xatolik: {e}")
             return "Noma'lum"
+        
+    
+    # ================= CLEAR PROCESSED OUTBOX EVENTS =================
+    @staticmethod
+    async def clear_processed_outbox(session: Any) -> int:
+        from sqlalchemy import delete
+        from database.models import OutboxEvent
+        
+        session = await UserRepository._prepare_session(session)
+
+        # Faqat processed=True bo'lgan, ya'ni vazifasini bajarib bo'lgan loglarni o'chiramiz
+        stmt = delete(OutboxEvent).where(OutboxEvent.processed == True)
+        result = await session.execute(stmt)
+        
+        await session.flush()
+        return result.rowcount  # Qancha qator o'chirilganini qaytaradi
