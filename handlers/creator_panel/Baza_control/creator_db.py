@@ -7,7 +7,7 @@ from aiogram import Router, html, types, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, Message
 from services.user_service import UserService
 from config import config
-
+from services.orchestrator import get_ai_stats
 router = Router()
 
 @router.callback_query(F.data == "creator_db_panel")
@@ -17,6 +17,7 @@ async def creator_db_menu(callback: CallbackQuery, user_service: UserService):
     
     # 📊 1. Real vaqtda bazaning hajmini yuklab olamiz
     db_size = await user_service.get_database_storage_info()
+    ai_stats = get_ai_stats()
     
     # 🗄️ UX ENGINIYERING: Maksimal darajada professional monitoring paneli dizayni
     text = (
@@ -25,11 +26,14 @@ async def creator_db_menu(callback: CallbackQuery, user_service: UserService):
         f"📊 {html.bold('Tizim statistikasi:')}\n"
         f"📝 Baza holati: <code>🟢 Faol / Stabil</code>\n"
         f"💾 Egallangan joy: {html.code(db_size)} 📦\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"Asoschi (Creator) uchun ma'lumotlar omborini to'liq boshqarish va konfiguratsiya qilish bo'limi.\n\n"
-        f"⚠️ {html.bold('DIQQAT:')} Ushbu bo'limda bajarilgan amallar (ayniqsa tozalash yoki noto'g'ri import) "
-        f"tizimga jiddiy zarar yetkazishi mumkin va {html.underline('orqaga qaytarib bo‘lmaydi!')}\n\n"
-        f"👇 {html.italic('Ijro etish uchun operatsiyani tanlang:')}"
+        f"🧠 {html.bold('AI Cache Brain holati:')}\n"
+        f"├ 🔥 Kuzatuvdagi faol a'zolar: <code>{ai_stats['tracked_hot_users_count']} ta</code>\n"
+        f"├ ⚡️ L1/L2 umumiy yozishlar: <code>{ai_stats['l1_total_writes']}/{ai_stats['l2_total_writes']}</code>\n"
+        f"├ ⏱️ O'rtacha kechikish (Latency): <code>{ai_stats['avg_latency_ms']} ms</code>\n"
+        f"└ 💤 Joriy dinamik uyqu: <code>{ai_stats['current_dynamic_sleep']}s</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"⚠️ {html.bold('DIQQAT:')} Bu yerda amallarni bajarishda ehtiyot bo'ling.\n"
+        f"👇 Ijro etish uchun operatsiyani tanlang:"
     )
 
     # 🎛️ Tugmalar dizayni va joylashuvi
