@@ -38,7 +38,7 @@ async def creator_menu(event: Message | CallbackQuery, user: dict):
         
         creator_inline_kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="👑 Adminlarni boshqarish", callback_data="admin_anime")],
+                [InlineKeyboardButton(text="👑 Adminlarni boshqarish", callback_data="admin_creator")],
                 [
                     InlineKeyboardButton(text="📊 To'liq statistika", callback_data="creator_statistics"),
                     InlineKeyboardButton(text="🗄️ Baza control", callback_data="creator_db_panel", style="danger")

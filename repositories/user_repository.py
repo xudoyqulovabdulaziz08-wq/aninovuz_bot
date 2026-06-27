@@ -212,3 +212,20 @@ class UserRepository:
             "total_episodes": total_episodes,
             "active_channels": active_channels
         }
+    
+    # ================= SET ADMIN STATUS =================
+    @staticmethod
+    async def set_admin(session: Any, user_id: int) -> bool:
+        session = await UserRepository._prepare_session(session)
+
+        result = await session.execute(
+            update(DBUser)
+            .where(DBUser.user_id == user_id)
+            .values(
+                status=UserStatus.ADMIN,
+                vip_expire_date=None  # Admin bo'gach, VIP muddatini tozalaymiz
+            )
+        )
+
+        await session.flush()
+        return result.rowcount > 0

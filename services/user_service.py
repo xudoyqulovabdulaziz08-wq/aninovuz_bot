@@ -273,3 +273,31 @@ class UserService:
 
         result = await real_session.execute(stmt)
         return list(result.scalars().all())
+    
+    # ==================================================
+    # 👑 PROMOTE TO ADMIN
+    # ==================================================
+    async def make_admin(self, user_id: int) -> bool:
+        try:
+            # 1. Repository orqali DB statusini ADMIN qilamiz
+            ok = await self.repo.set_admin(self.session, user_id)
+            if not ok:
+                await self.session.rollback()
+                return False
+
+            # 2. O'zgarishni DB ga tasdiqlaymiz (Commit)
+            await self.session.commit()
+
+            # 3. 🧹 KESHNI TOZALASH (Invalidatsiya)
+            # Bu juda muhim! L1 va L2 keshlar darhol o'chadi. Foydalanuvchi keyingi 
+            # marta botga yozganda kesh-first tufayli eski USER statusida qolib ketmaydi,
+            # uning yangi ADMIN statusi bazadan qayta yuklanadi.
+            await self.cache.invalidate("users", str(user_id), broadcast=True)
+            
+            logger.info(f"👑 User {user_id} has been promoted to ADMIN successfully.")
+            return True
+            
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"❌ Failed to make admin for user {user_id}: {e}")
+            raise e
