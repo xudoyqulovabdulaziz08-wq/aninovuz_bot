@@ -245,3 +245,19 @@ class UserRepository:
 
         await session.flush()
         return result.rowcount > 0
+    
+    # ================= GET DATABASE SIZE =================
+    @staticmethod
+    async def get_db_size(session: Any) -> str:
+        from sqlalchemy import text
+        session = await UserRepository._prepare_session(session)
+        
+        try:
+            # Joriy ulangan bazaning nomini va uning diskdagi hajmini aniqlaymiz
+            # pg_size_pretty funksiyasi avtomatik '45 MB' yoki '1.2 GB' formatiga o'tkazib beradi
+            stmt = text("SELECT pg_size_pretty(pg_database_size(current_database()));")
+            result = await session.execute(stmt)
+            return result.scalar() or "0 MB"
+        except Exception as e:
+            logger.error(f"❌ Baza hajmini hisoblashda xatolik: {e}")
+            return "Noma'lum"
