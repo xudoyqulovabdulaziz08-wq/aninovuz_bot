@@ -316,31 +316,6 @@ class AnimeService:
             return False
 
 
-    # ==================================================
-    # 📥 IMPORT DATABASE BACKUP & FLUSH CACHE
-    # ==================================================
-    async def import_database_dump(self, sql_content: str) -> bool:
-        try:
-            # 1. SQL Dumpni bazaga xavfsiz yozamiz
-            success = await self.repo.execute_sql_backup(self.session, sql_content)
-            
-            if not success:
-                await self.session.rollback()
-                return False
-                
-            # 2. Tranzaksiyani tasdiqlaymiz
-            await self.session.commit()
-            
-            # 3. 🧹 CRITICAL UX: Butun tizim keshini tozalaymiz (Flush All L1/L2)
-            # Chunki yangi baza import bo'lgach, eski keshlar butunlay o'z kuchini yoqotadi
-            await self.cache.clear_all() # Yoki valkey.redis.flushall()
-            
-            logger.info("📥 Database successfully restored from backup. Cache flushed completely.")
-            return True
-            
-        except Exception as e:
-            await self.session.rollback()
-            logger.error(f"❌ Failed to restore database: {e}")
-            raise e
+    
         
     

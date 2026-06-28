@@ -3,31 +3,30 @@ import io
 from typing import Any
 from datetime import datetime
 from aiogram.fsm.context import FSMContext
-from asyncio.log import logger
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.exceptions import TelegramBadRequest
 from aiogram import Router, html, types, F
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, Message, BufferedInputFile
-from services.user_service import UserService
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message, BufferedInputFile
+from services.data_service import DataService
 from config import config
 from services.orchestrator import get_ai_stats
-from repositories.user_repository import UserRepository
-router = Router()
 
+# Logger nomi loyihaga moslandi
+logger = logging.getLogger("AdminDbRouter")
+
+router = Router()
 
 class AdminDBStates(StatesGroup):
     waiting_for_backup_file = State()
 
 
-
 @router.callback_query(F.data == "creator_db_panel")
-async def creator_db_menu(callback: CallbackQuery, user_service: UserService):
+async def creator_db_menu(callback: CallbackQuery, data_service: DataService):
     # Tugma bosilganda yuqoridagi yuklanish soat belgisini darhol o'chiramiz
     await callback.answer()
     
     # 📊 1. Real vaqtda bazaning hajmini yuklab olamiz
-    db_size = await user_service.get_database_storage_info()
+    db_size = await data_service.get_database_storage_info()
     ai_stats = get_ai_stats()
     
     # 🗄️ UX ENGINIYERING: Maksimal darajada professional monitoring paneli dizayni
@@ -47,19 +46,16 @@ async def creator_db_menu(callback: CallbackQuery, user_service: UserService):
         f"👇 Ijro etish uchun operatsiyani tanlang:"
     )
 
-    # 🎛️ Tugmalar dizayni va joylashuvi
+    # 🎛️ Tugmalar dizayni (style argumentlari olib tashlandi, Aiogram 3 standartiga keltirildi)
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="📥 Baza Import", callback_data="baza_import", style="primary"),
-                InlineKeyboardButton(text="📤 Baza Export ", callback_data="baza_export", style="primary")
+                InlineKeyboardButton(text="📤 Baza Export", callback_data="baza_export", style="primary")
             ],
+            
             [
-                # Yangilash tugmasi - joy o'zgarganini qayta tekshirish uchun silliqqina shu oynani qayta yuklaydi
-                InlineKeyboardButton(text="🔄 Statni yangilash", callback_data="creator_db_panel", style="primary")
-            ],
-            [
-                InlineKeyboardButton(text="🗑️  OutboxEvent tozalash", callback_data="outboxevent_clear", style="primary")
+                InlineKeyboardButton(text="🗑️ OutboxEvent tozalash", callback_data="outboxevent_clear", style="primary")
             ],
             [
                 InlineKeyboardButton(text="🗑️ Bazani toliq tozalash (Clear)", callback_data="baza_clear", style="danger")
@@ -92,9 +88,7 @@ async def creator_db_menu(callback: CallbackQuery, user_service: UserService):
         logger.error(f"❌ Baza bo'limida kutilmagan xatolik: {e}")
 
 
-
-    
-    # =========================================================
+# =========================================================
 # 1. 🗑️ OUTBOX TOZALASH TUGMASI BOSILGANDA (TASDIQLASH)
 # =========================================================
 @router.callback_query(F.data == "outboxevent_clear")
@@ -110,7 +104,7 @@ async def confirm_outbox_clear_request(callback: CallbackQuery):
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Ha, tozalansin", callback_data="confirm_outbox:yes", style="primary"),
+            InlineKeyboardButton(text="✅ Ha, tozalansin", callback_data="confirm_outbox:yes", style="success"),
             InlineKeyboardButton(text="❌ Yo‘q, bekor qilish", callback_data="creator_db_panel", style="danger")
         ]
     ])
@@ -122,7 +116,7 @@ async def confirm_outbox_clear_request(callback: CallbackQuery):
 # 2. ⚡ YAKUNIY TOZALASH AMALI (HA / YO'Q)
 # =========================================================
 @router.callback_query(F.data.startswith("confirm_outbox:"))
-async def finalize_outbox_clear(callback: CallbackQuery, user_service: UserService):
+async def finalize_outbox_clear(callback: CallbackQuery, data_service: DataService):
     await callback.answer()
     
     decision = callback.data.split(":")[1]
@@ -133,7 +127,7 @@ async def finalize_outbox_clear(callback: CallbackQuery, user_service: UserServi
     
     if decision == "yes":
         # Servis orqali eski loglarni tozalaymiz
-        count = await user_service.clean_outbox_events()
+        count = await data_service.clean_outbox_events()
         
         text = (
             f"🧹 {html.bold('Tozalash yakunlandi!')}\n"
@@ -147,33 +141,8 @@ async def finalize_outbox_clear(callback: CallbackQuery, user_service: UserServi
     await callback.message.edit_text(text=text, reply_markup=back_kb, parse_mode="HTML")
 
 
-
-    # ================= SAFE EXECUTE SQL SCRIPT (IMPORT) =================
-    @staticmethod
-    async def execute_sql_backup(session: Any, sql_content: str) -> bool:
-        from sqlalchemy import text
-        session = await UserRepository._prepare_session(session)
-        
-        try:
-            # 1. Xavfsizlik uchun cheklovlarni (Foreign Key) vaqtinchalik o'chirib turish ham mumkin,
-            # lekin toza SQL dump ishlatilsa, bitta tranzaksiya ichida bajarilgani ma'qul.
-            
-            # 2. SQL tarkibidagi buyruqlarni toza matn ko'rinishida ijro etamiz
-            # PostgreSQL dump faylida "DROP TABLE IF EXISTS", "CREATE TABLE" va "INSERT" buyruqlari tartib bilan bo'ladi
-            await session.execute(text(sql_content))
-            
-            await session.flush()
-            return True
-        except Exception as e:
-            logger.error(f"❌ SQL dump ijro etishda jiddiy xatolik: {e}")
-            return False
-        
-
-
-
-    
-    # =========================================================
-# 1. TUGMA BOSILGANDA - FAYL KUTISH REJIMINI YOQISH
+# =========================================================
+# 3. TUGMA BOSILGANDA - FAYL KUTISH REJIMINI YOQISH
 # =========================================================
 @router.callback_query(F.data == "baza_import")
 async def start_baza_import(callback: CallbackQuery, state: FSMContext):
@@ -200,20 +169,20 @@ async def start_baza_import(callback: CallbackQuery, state: FSMContext):
 
 
 # =========================================================
-# 2. FAYL KELGANDA - UNI YUKLAB OLIB BAZAGA URISH
+# 4. FAYL KELGANDA - UNI YUKLAB OLIB BAZAGA URISH
 # =========================================================
 @router.message(AdminDBStates.waiting_for_backup_file, F.document)
-async def process_backup_file_import(message: Message, state: FSMContext, user_service: UserService):
-    # Fayl kengaytmasini tekshiramiz (.sql bo'lishi shart)
+async def process_backup_file_import(message: Message, state: FSMContext, data_service: DataService):
     file_name = message.document.file_name
+    
+    # f-string xatosi to'g'rilandi
     if not file_name.endswith('.sql'):
         await message.reply(
-            text="❌ {html.bold('Xato fayl formati!')}\n\nFaqatgina {html.code('.sql')} kengaytmasiga ega bo‘lgan toza Postgres dump faylini yuborishingiz shart.",
+            text=f"❌ {html.bold('Xato fayl formati!')}\n\nFaqatgina {html.code('.sql')} kengaytmasiga ega bo‘lgan toza Postgres dump faylini yuborishingiz shart.",
             parse_mode="HTML"
         )
         return
 
-    # Yuklanish jarayonini ko'rsatish xabari
     status_msg = await message.reply("⏳ Fayl o‘qilmoqda va tekshirilmoqda, iltimos kuting...")
     
     try:
@@ -227,13 +196,13 @@ async def process_backup_file_import(message: Message, state: FSMContext, user_s
         await status_msg.edit_text("⚡ Baza qayta tiklanmoqda va L1/L2 keshlar invalidatsiya qilinmoqda...")
         
         # Servis orqali importni ishga tushiramiz
-        success = await user_service.import_database_dump(sql_content)
+        success = await data_service.import_database_dump(sql_content)
         
         # FSM ni yopamiz
         await state.clear()
         
         back_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Baza paneliga qaytish", callback_data="creator_db_panel", style="primary")]
+            [InlineKeyboardButton(text="⬅️ Baza paneliga qaytish", callback_data="creator_db_panel", style="danger")]
         ])
         
         if success:
@@ -246,7 +215,7 @@ async def process_backup_file_import(message: Message, state: FSMContext, user_s
             )
         else:
             await status_msg.edit_text(
-                text="❌ {html.bold('Import muvaffaqiyatsiz tugadi!')}\n\nSQL sintaksisida yoki jadvallar ketma-ketligida xatolik yuz berdi. Baza o'zgarishsiz qoldi.",
+                text=f"❌ {html.bold('Import muvaffaqiyatsiz tugadi!')}\n\nSQL sintaksisida yoki jadvallar ketma-ketligida xatolik yuz berdi. Baza o'zgarishsiz qoldi.",
                 reply_markup=back_kb,
                 parse_mode="HTML"
             )
@@ -264,7 +233,7 @@ async def process_backup_file_import(message: Message, state: FSMContext, user_s
 
 
 # =========================================================
-# 3. FAYL O'RNIGA MATN YUBORILSA - BEKOR QILISH MANTIQI
+# 5. FAYL O'RNIGA MATN YUBORILSA - BEKOR QILISH MANTIQI
 # =========================================================
 @router.message(AdminDBStates.waiting_for_backup_file)
 async def cancel_import_on_text(message: Message, state: FSMContext):
@@ -272,39 +241,29 @@ async def cancel_import_on_text(message: Message, state: FSMContext):
     await message.reply(
         text="❌ Baza import qilish jarayoni bekor qilindi. Hech qanday o‘zgarish amalga oshirilmadi.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Baza paneliga qaytish", callback_data="creator_db_panel", style="primary")]
+            [InlineKeyboardButton(text="⬅️ Baza paneliga qaytish", callback_data="creator_db_panel", style="danger")]
         ])
     )
 
 
-
-
+# =========================================================
+# 6. BAZA EXPORT QILISH HANDLERI
+# =========================================================
 @router.callback_query(F.data == "baza_export")
-async def process_database_export(callback: CallbackQuery, user_service: UserService):
-    # Yuklanish vaqt olishi mumkinligi sababli tepada "soat" belgisini aylantirib turamiz
-    # va xabar beramiz
+async def process_database_export(callback: CallbackQuery, data_service: DataService):
     await callback.answer("⏳ SQL zaxira nusxasi tayyorlanmoqda...", show_alert=False)
-    
     status_msg = await callback.message.answer("⚡ Baza jadvallari tahlil qilinmoqda va SQL dump generatsiya qilinmoqda...")
 
     try:
-        # 1. Servis orqali toza SQL matnini olamiz
-        sql_dump_content = await user_service.export_database_dump()
-        
-        # 2. Matnni baytlar oqimiga (bytes) o'tkazamiz
+        sql_dump_content = await data_service.export_database_dump()
         file_bytes = sql_dump_content.encode('utf-8')
         
-        # Sifati va sanasini fayl nomiga qo'shib chiroyli nom beramiz
         current_date = datetime.now().strftime("%Y_%m_%d_%H%M%S")
         backup_filename = f"ani_nowuz_backup_{current_date}.sql"
         
-        # 3. Aiogram uchun virtual kirish faylini tayyorlaymiz
         document_file = BufferedInputFile(file_bytes, filename=backup_filename)
-        
-        # Status xabarni o'chiramiz
         await status_msg.delete()
         
-        # 4. Creatorga faylni daxshatli UX xabari bilan yuboramiz
         text = (
             f"📤 {html.bold('Baza muvaffaqiyatli Eksport qilindi!')}\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -315,7 +274,7 @@ async def process_database_export(callback: CallbackQuery, user_service: UserSer
         )
         
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Baza paneliga qaytish", callback_data="creator_db_panel", style="primary")]
+            [InlineKeyboardButton(text="⬅️ Baza paneliga qaytish", callback_data="creator_db_panel", style="danger")]
         ])
         
         await callback.message.bot.send_document(
