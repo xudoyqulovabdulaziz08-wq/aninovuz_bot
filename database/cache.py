@@ -192,12 +192,6 @@ class CacheManager:
             async with self._inflight_lock:
                 self._inflight.pop(key, None)
 
-
-    async def delete(self, key):
-        async with self._lock:
-            self._cache.pop(key, None)
-
-
     # ==================================================
     # SET
     # ==================================================
@@ -322,17 +316,6 @@ class CacheManager:
                 for k in expired:
                     self._l1_cache.pop(k, None)
 
-    async def clear_all(self):
-        try:
-            if self.redis:
-                await self.redis.flushdb()  # Faqat shu Valkey/Redis bazasini tozalaydi
-
-            async with self._l1_lock:
-                self._l1_cache.clear()
-
-            logger.warning("🧹 ALL CACHE CLEARED")
-        except Exception as e:
-            logger.error(f"Failed to clear cache: {e}")
     # ==================================================
     # METRICS
     # ==================================================
