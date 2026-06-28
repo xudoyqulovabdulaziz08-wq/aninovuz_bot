@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional, Dict
 from datetime import datetime, timezone
-
+from services.orchestrator import state
 from repositories.user_repository import UserRepository
 from database.cache import cache_manager  # Universal CacheManager
 from database.models import UserStatus
@@ -292,6 +292,7 @@ class UserService:
             # Bu juda muhim! L1 va L2 keshlar darhol o'chadi. Foydalanuvchi keyingi 
             # marta botga yozganda kesh-first tufayli eski USER statusida qolib ketmaydi,
             # uning yangi ADMIN statusi bazadan qayta yuklanadi.
+            await state.l1_cache.delete(user_id)
             await self.cache.invalidate("users", str(user_id), broadcast=True)
             
             logger.info(f"👑 User {user_id} has been promoted to ADMIN successfully.")

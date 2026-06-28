@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 from aiogram import Router, html, types, F
-from aiogram.filters import CommandStart, CommandObject
+from aiogram.filters import CommandStart, CommandObject, Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
 from services.user_service import UserService
 from config import config
@@ -179,3 +179,46 @@ async def check_sub_callback_handler(callback: CallbackQuery, session: Any, stat
 
     # Agar hech qanday deep link bo'lmasa, oddiy bosh menyuni chiqarib beramiz
     await send_or_edit_start_menu(callback.message, user_id, username)
+
+
+
+
+
+
+
+
+
+@router.message(Command("admin"))
+async def admin_command(message: Message, user: dict):
+    user_id = message.from_user.id
+    user_status = user.get("status", "user").lower()
+
+    if user_id == CREATOR_ID:
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="⚙️ Creator Paneli"),
+                 KeyboardButton(text="🛠 Admin Paneli")]
+            ],
+            resize_keyboard=True
+        )
+
+        await message.answer(
+            "👑 Creator paneli ochildi.",
+            reply_markup=keyboard
+        )
+
+    elif user_status == "admin":
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="🛠 Admin Paneli")]
+            ],
+            resize_keyboard=True
+        )
+
+        await message.answer(
+            "🛠 Admin paneli ochildi.",
+            reply_markup=keyboard
+        )
+
+    else:
+        await message.answer("❌ Siz admin emassiz.")

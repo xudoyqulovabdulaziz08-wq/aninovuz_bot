@@ -146,7 +146,12 @@ async def on_startup(bot: Bot):
     except Exception as e:
         logger.critical(f"💥 Core Infrastructure Failure: {e}")
         raise e
-
+    try:
+        if valkey.redis:
+            await valkey.redis.flushdb()
+            logger.warning("🧹 Deploy: Valkey cache cleared.")
+    except Exception as e:
+        logger.error(f"Cache clear failed: {e}")
     # 3. DB sxemalarni sinxronizatsiya qilish
     try:
         async with engine.begin() as conn:

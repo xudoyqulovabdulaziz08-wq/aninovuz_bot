@@ -210,7 +210,7 @@ async def finalize_add_admin(callback: CallbackQuery, state: FSMContext, user_se
                 await callback.bot.send_message(
                     chat_id=target_id,
                     text=f"👑 <b>Tabriklaymiz!</b> Asoschi (Creator) sizni ushbu botga <b>ADMIN</b> qilib tayinladi.\n"
-                         f"Botni boshqarish uchun /admin buyrug'ini yozishingiz mumkin."
+                         f"Botni boshqarish uchun /start buyrug'ini yozishingiz mumkin."
                 )
             except Exception:
                 pass
