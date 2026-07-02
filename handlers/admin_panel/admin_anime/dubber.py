@@ -1,4 +1,5 @@
 from aiogram import Router, F, html
+from typing import Any
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -72,18 +73,20 @@ async def process_raw_dubbers(message: Message, state: FSMContext):
     await message.answer(text=text, reply_markup=kb, parse_mode="HTML")
 
 
-# ================= 3. YAKUNIY BAZAGA SAQLASH (SERVICE ORQALI) =================
+# ================= 3. YAKUNIY BAZAGA SAQLASH =================
 @router.callback_query(TempDubberStates.confirm_save, F.data == "db_save_quick_dubbers")
-async def save_dubbers_to_db(callback: CallbackQuery, state: FSMContext, anime_service: AnimeService):
+async def save_dubbers_to_db(callback: CallbackQuery, state: FSMContext, session: Any): # 👈 Boshqa handlerlar kabi faqat session olamiz
     data = await state.get_data()
     dubbers_list: list[str] = data.get("parsed_dubbers", [])
     await state.clear()
     
-    # Yuklanish effektini beramiz
     await callback.answer("⏳ Bazaga yozilmoqda...")
     
     try:
-        # Service'ga yuklaymiz. U tranzaksiya va keshni o'zi boshqaradi
+        # 🎙 Boshqa ishlayotgan metodlaringiz kabi serviceni qo'lda yaratib olamiz:
+        anime_service = AnimeService(session)
+        
+        # Endi service ichidagi metod muammosiz bajariladi
         added_count, skipped_dubbers = await anime_service.add_quick_dubbers(dubbers_list)
         
         result_text = f"✅ {html.bold('Dubberlar muvaffaqiyatli yakunlandi!')}\n\n"
@@ -103,8 +106,6 @@ async def save_dubbers_to_db(callback: CallbackQuery, state: FSMContext, anime_s
             reply_markup=None,
             parse_mode="HTML"
         )
-
-
 # ================= BEKOR QILISH =================
 @router.callback_query(F.data == "cancel_dubber_add")
 async def cancel_dubber(callback: CallbackQuery, state: FSMContext):
