@@ -39,7 +39,7 @@ async def send_or_edit_start_menu(target: Message | CallbackQuery, user_id: int,
             ],
             [InlineKeyboardButton(text="VIP 💎", callback_data="buy_vip", style="success")],
 
-            [InlineKeyboardButton(text="🖥 Shaxsiy Kabinet", callback_data="open_cabinet", style="primary")],
+            #[InlineKeyboardButton(text="🖥 Shaxsiy Kabinet", callback_data="open_cabinet", style="primary")],
             [InlineKeyboardButton(text="💬 Yordam", callback_data="support", style="danger")]
         ]
     )
@@ -187,75 +187,6 @@ async def check_sub_callback_handler(callback: CallbackQuery, session: Any, stat
 
 
 
-
-# 3️⃣ 🖥 SHAXSIY KABINET TUGMASI BOSILGANDA
-@router.callback_query(F.data == "open_cabinet")
-async def open_cabinet_handler(callback: CallbackQuery, user_service: UserService):
-    user_id = callback.from_user.id
-    
-    # Yuklanish belgisini ko'rsatamiz
-    await callback.answer("⏳ Kabinet yuklanmoqda...")
-    
-    # 🌐 Node.js Backend URL (O'zingizning backend manzilingiz va portingiz)
-    # Kelajakda buni config.BACKEND_URL ko'rinishida yozgan ma'qul
-    BACKEND_URL = "http://localhost:3000/api/auth/bot/generate-password"
-    
-    password = None
-    
-    # Backend bilan xavfsiz bog'lanish (Timeout bilan)
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with asyncio.timeout(4.0): # 4 soniyadan ko'p kuttirmaymiz
-                payload = {"userId": user_id}
-                async with session.post(BACKEND_URL, json=payload) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        password = result.get("password")
-    except Exception as e:
-        logger.error(f"❌ Backend API bilan ulanishda xatolik: {e}")
-        password = None
-
-    # Agar backend parolni bermasa (API o'chiq bo'lsa yoki xato bersa)
-    if not password:
-        await callback.message.answer(
-            logger.error(f"❌ Backend API bilan ulanishda xatolik: {e}")
-        )
-        return
-
-    # 🔥 ENG MUHIM JOYI: Backend parolni yaratgach, bot keshini (L1 va L2) tozalab yangilaymiz!
-    await user_service.sync_web_password(user_id)
-
-    # Foydalanuvchiga premium, toza interfeysda ma'lumotlarini taqdim etamiz
-    cabinet_text = (
-        f"🖥 {html.bold('SHAXSIY KABINET')}\n\n"
-        f"Aninov.uz saytiga istalgan qurilmadan (telefon, kompyuter yoki televizor) "
-        f"kirish uchun quyidagi shaxsiy ma'lumotlaringizdan foydalaning:\n\n"
-        f"🆔 {html.bold('Telegram ID:')} <code>{user_id}</code>\n"
-        f"🔑 {html.bold('Maxsus Parol:')} <code>{password}</code>\n\n"
-        f"⚠️ {html.italic('Eslatma: Parol va ID raqamingizni nusxalash uchun ustiga bir marta bosing. ')}"
-        f"{html.italic('Ushbu maxfiy parolni hech kimga bermang!')}"
-    )
-
-    cabinet_keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Bosh menyuga qaytish", callback_data="back_to_start")]
-        ]
-    )
-
-    # Start menyuni media tahrirlash (Edit) orqali chiroyli kabinet oynasiga aylantiramiz
-    try:
-        await callback.message.edit_caption(
-            caption=cabinet_text,
-            reply_markup=cabinet_keyboard,
-            parse_mode="HTML"
-        )
-    except Exception:
-        # Agar rasm captionini tahrirlashda muammo bo'lsa yangi xabar sifatida chiqaradi
-        await callback.message.answer(
-            text=cabinet_text,
-            reply_markup=cabinet_keyboard,
-            parse_mode="HTML"
-        )
 
 
 

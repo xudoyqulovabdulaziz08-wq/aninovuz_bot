@@ -317,5 +317,44 @@ class AnimeService:
 
 
     
-        
+    # ==================================================
+    # 🎙 QUICK DUBBERS ADD (TRANSACTION-SAFE & CACHE-AWARE)
+    # ==================================================
+    async def add_quick_dubbers(self, dubbers_list: list[str]) -> tuple[int, list[str]]:
+        """
+        Tezkor dubberlarni bazaga qo'shish biznes logikasi.
+        Qaytaradi: (qo'shilganlar_soni, tashlab_ketilgan_dubberlar_ro'yxati)
+        """
+        if hasattr(self.session, "_ensure_session"):
+            await self.session._ensure_session()
+
+        added_count = 0
+        skipped_dubbers = []
+
+        try:
+            for dubber_name in dubbers_list:
+                # 1. Repozitoriy orqali dublikat borligini tekshiramiz
+                existing = await self.repo.get_dubber_by_name(self.session, dubber_name)
+                
+                if not existing:
+                    # 2. Mavjud bo'lmasa yangisini qo'shamiz
+                    await self.repo.add_dubber(self.session, dubber_name)
+                    added_count += 1
+                else:
+                    skipped_dubbers.append(dubber_name)
+
+            # 3. Tranzaksiyani saqlaymiz
+            if added_count > 0 and hasattr(self.session, "commit"):
+                await self.session.commit()
+                # 🔥 Dubberlar ro'yxati o'zgargani sababli dubber keshlarini majburiy tozalaymiz
+                await self.cache.invalidate("dubber", "all", broadcast=True)
+                logger.info(f"💾 DUBBER CACHE INVALIDATED: Added {added_count} new dubbers.")
+            
+            return added_count, skipped_dubbers
+
+        except Exception as e:
+            if hasattr(self.session, "rollback"):
+                await self.session.rollback()
+            logger.error(f"❌ Service Layer Error while adding dubbers: {e}")
+            raise e
     

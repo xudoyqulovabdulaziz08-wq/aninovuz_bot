@@ -31,7 +31,8 @@ from handlers.admin_panel.admin_anime import(
     add_episode,
     del_episode,
     channel_anime,
-    edit_anime
+    edit_anime,
+    dubber
 )
 from handlers.admin_panel.admin_channel import(
     channel_menu,
@@ -84,6 +85,7 @@ main_router.include_routers(
     add_anime.router,
     list_anime.router,
     janr.router,
+    dubber.router,
     add_episode.router,
     del_episode.router,
     channel_anime.router,

@@ -292,3 +292,26 @@ class AnimeRepository:
             anime.genres = [] # Agar hamma janr olib tashlansa
             
         return True
+    
+
+    # ================= DUBBER METHODS =================
+    @staticmethod
+    async def get_dubber_by_name(session: Any, name: str) -> Optional[Any]:
+        """Dubberni ismi orqali qidirish (Dublikat oldini olish uchun)"""
+        # Kechikib import qilish orqali circular import xavfini yo'qotamiz
+        from database.models import Dubber
+        session = await AnimeRepository._prepare_session(session)
+        
+        stmt = select(Dubber).where(Dubber.name == name)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def add_dubber(session: Any, name: str) -> Any:
+        """Yangi dubber ob'ektini yaratish va sessiyaga qo'shish"""
+        from database.models import Dubber
+        session = await AnimeRepository._prepare_session(session)
+        
+        new_dubber = Dubber(name=name)
+        session.add(new_dubber)
+        return new_dubber
