@@ -370,8 +370,6 @@ class Comment(Base):
     )
 
     # 🌟 PRO REPLIES TIZIMI (Self-referencing Foreign Key)
-    # Agar bu ustun NULL bo'lsa - bu asosiy izoh. 
-    # Agar ichida boshqa comment_id bo'lsa - bu o'sha izohga yozilgan JAVOB (Reply) hisoblanadi.
     parent_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("anime_comments.id", ondelete="CASCADE"),
         index=True,
@@ -392,15 +390,18 @@ class Comment(Base):
         lazy="selectin"
     )
 
-    # Bitta izohga yozilgan barcha javoblarni (replies) daraxtsimon yuklash
+    # 🟢 1. Bitta izohga yozilgan barcha javoblar (One-to-Many)
+    # Bu yerda remote_side BO'LMAYDI! Cascade aynan shu yerda qoladi.
     replies: Mapped[list["Comment"]] = relationship(
         "Comment",
         back_populates="parent",
         cascade="all, delete-orphan",
-        remote_side=[id], # Self-referential bog'liqlikni bildiradi
+        passive_deletes=True,
         lazy="selectin"
     )
 
+    # 🟢 2. Ushbu javobning ota izohi (Many-to-One)
+    # 🎯 remote_side FAQAT SHU YERDA bo'lishi shart! (id ustuniga ishora qiladi)
     parent: Mapped[Optional["Comment"]] = relationship(
         "Comment",
         back_populates="replies",

@@ -218,8 +218,7 @@ async def open_cabinet_handler(callback: CallbackQuery, user_service: UserServic
     # Agar backend parolni bermasa (API o'chiq bo'lsa yoki xato bersa)
     if not password:
         await callback.message.answer(
-            "❌ Kechirasiz, ayni vaqtda shaxsiy kabinet tizimi vaqtincha ishlamayapti.\n"
-            "Texnik ishlar olib borilayotgan bo'lishi mumkin. Birozdan so'ng qayta urinib ko'ring."
+            logger.error(f"❌ Backend API bilan ulanishda xatolik: {e}")
         )
         return
 

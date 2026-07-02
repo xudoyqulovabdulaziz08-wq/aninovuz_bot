@@ -263,7 +263,7 @@ class CacheManager:
             pass
 
     # ==================================================
-    # STREAM LISTENER
+    # STREAM LISTENER (AUTO-HEAL BILAN MUSTAHKAMLASH)
     # ==================================================
     async def _stream_listener(self):
         while self.is_alive:
@@ -291,8 +291,21 @@ class CacheManager:
 
                         await self.redis.xack(self._stream_name, self._group_name, msg_id)
 
+            except ResponseError as re:
+                # 🎯 AGAR BAZADA GURUH TOPILMASA (NOGROUP XATOSI):
+                if "NOGROUP" in str(re):
+                    logger.warning(
+                        f"⚠️ Stream guruh topilmadi, qayta tiklanmoqda... {self._stream_name} -> {self._group_name}"
+                    )
+                    # Guruhni oqim ichida real-time qayta yaratib olamiz!
+                    await self._ensure_stream_setup()
+                    await asyncio.sleep(1)
+                else:
+                    logger.error(f"STREAM RESPONSE ERROR: {re}")
+                    await asyncio.sleep(2)
+                    
             except Exception as e:
-                logger.error(f"STREAM ERROR: {e}")
+                logger.error(f"STREAM UNEXPECTED ERROR: {e}")
                 await asyncio.sleep(2)
 
     # ==================================================
