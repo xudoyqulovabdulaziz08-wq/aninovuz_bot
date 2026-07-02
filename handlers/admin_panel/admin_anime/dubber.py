@@ -63,7 +63,7 @@ async def process_raw_dubbers(message: Message, state: FSMContext):
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📥 Bazaga saqlash", callback_data="db_save_quick_dubbers")
+            InlineKeyboardButton(text="📥 Bazaga saqlash", callback_data="save_dubbers_to_db")
         ],
         [
             InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_dubber_add")
