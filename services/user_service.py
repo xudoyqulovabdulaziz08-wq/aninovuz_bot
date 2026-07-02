@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from repositories.user_repository import UserRepository
 from database.cache import cache_manager  # Universal CacheManager
 from database.models import UserStatus
-
+from services.orchestrator import state
 logger = logging.getLogger("UserService")
 
 
@@ -395,3 +395,29 @@ class UserService:
         except Exception as e:
             logger.error(f"❌ Service layer export failed: {e}")
             raise e
+        
+    # ==================================================
+    # 🔑 REFRESH WEB PASSWORD HASH (CACHE SYNC)
+    # ==================================================
+    async def sync_web_password(self, user_id: int) -> bool:
+        """
+        Backend parolni yangilaganidan so'ng, botning L1 va L2 
+        keshlarini yangi ma'lumotga moslab tozalaydi.
+        """
+        try:
+            # 1. L2 (Valkey/CacheManager) keshini o'chiramiz
+            await self.cache.invalidate("users", str(user_id), broadcast=True)
+            
+            # 2. Global orchestrator state ichidagi L1 in-memory keshini tozalaymiz
+            # middlewere.py dagi L1Cache ob'ekti state.l1_cache ichida yotadi
+            if hasattr(state, 'l1_cache') and state.l1_cache is not None:
+                async with state.l1_cache._lock:
+                    # L1 kesh ichidagi ichki dict ob'ektidan o'chiramiz
+                    if user_id in state.l1_cache._cache:
+                        state.l1_cache._cache.pop(user_id, None)
+                        logger.debug(f"🧹 L1 cache cleared safely for user_id={user_id}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"❌ Keshni tozalashda xatolik: {e}")
+            return False

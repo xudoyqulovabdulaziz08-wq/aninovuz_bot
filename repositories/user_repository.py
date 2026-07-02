@@ -38,6 +38,7 @@ class UserRepository:
             "sleep_reminder_enabled": user.sleep_reminder_enabled,
             "joined_at": user.joined_at.isoformat() if user.joined_at else None,
             "is_vip": user.status == UserStatus.VIP,  # Dinamik tekshiruv
+            "password_hash": getattr(user, "password_hash", None)
         }
 
     # ================= GET OR CREATE =================

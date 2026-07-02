@@ -12,7 +12,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.hybrid import hybrid_property  # <-- Hybrid alohida moduldan keladi
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy import event as sqla_event
-
+from sqlalchemy import CheckConstraint
 #========================================================================#
 class Base(DeclarativeBase):
     def to_dict(self) -> dict:
@@ -59,6 +59,22 @@ anime_genres = Table(
 )
 
 #========================================================================#
+anime_dubbers = Table(
+    "anime_dubbers",
+    Base.metadata,
+    Column(
+        "anime_id",
+        ForeignKey("anime_list.anime_id", ondelete="CASCADE"),
+        primary_key=True
+    ),
+    Column(
+        "dubber_id",
+        ForeignKey("dubbers.id", ondelete="CASCADE"),
+        primary_key=True
+    ),
+)
+
+#========================================================================#
 class DBUser(Base):
     __tablename__ = "users"
 
@@ -71,7 +87,10 @@ class DBUser(Base):
         String(255),
         index=True
     )
-
+    password_hash: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True
+    )
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -145,6 +164,30 @@ class Genre(Base):
     )
 
 #========================================================================#
+class Dubber(Base):
+    __tablename__ = "dubbers"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    # Dubber sahifasiga kirganda u ovoz bergan barcha animelarni chiqarish uchun
+    animes: Mapped[list["Anime"]] = relationship(
+        "Anime",
+        secondary="anime_dubbers",
+        back_populates="dubbers",
+        lazy="selectin"
+    )
+
+#========================================================================#
 class Anime(Base):
     __tablename__ = "anime_list"
 
@@ -162,7 +205,10 @@ class Anime(Base):
     poster_id: Mapped[Optional[str]] = mapped_column(
         String(255)
     )
-
+    poster_r2_url: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True
+    )
     year: Mapped[Optional[int]] = mapped_column(
         Integer,
         index=True
@@ -179,7 +225,7 @@ class Anime(Base):
     )
 
     rating_sum: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
+        Numeric(12, 2), # Ovozlar ko'payganda sig'im yetishi uchun 12 ga o'tkazildi
         default=Decimal("0"),
         server_default="0"
     )
@@ -196,7 +242,12 @@ class Anime(Base):
         server_default="0",
         index=True
     )
-
+    views_total: Mapped[int] = mapped_column(
+        BigInteger,  # Ko'rishlar milliondan oshib ketishi uchun BigInteger qildik
+        default=0,
+        server_default="0",
+        index=True
+    )
     is_completed: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
@@ -205,6 +256,21 @@ class Anime(Base):
 
     genres: Mapped[list["Genre"]] = relationship(
         secondary="anime_genres",
+        back_populates="animes",
+        lazy="selectin"
+    )
+    
+    comments: Mapped[list["Comment"]] = relationship(
+        "Comment",
+        back_populates="anime",
+        cascade="all, delete-orphan",
+        order_by=lambda: Comment.created_at.desc(), # Oxirgi yozilgan izohlar birinchi chiqadi
+        lazy="selectin"
+    )
+
+    # Anime class'ining ichiga (masalan, genres munosabatidan keyin) qo'shing:
+    dubbers: Mapped[list["Dubber"]] = relationship(
+        secondary="anime_dubbers",
         back_populates="animes",
         lazy="selectin"
     )
@@ -221,14 +287,26 @@ class Anime(Base):
     def average_rating(self) -> float:
         if self.rating_count == 0:
             return 0.0
-        return float(self.rating_sum / self.rating_count)
+        raw_avg = float(self.rating_sum / self.rating_count)
+        return min(round(raw_avg, 1), 10.0) # 10 tadan oshib ketmasligini ta'minlaydi
 
     @average_rating.expression
     def average_rating(cls):
-        return case(
+        calculated_avg = case(
             (cls.rating_count == 0, 0.0),
             else_=cast(cls.rating_sum, Float) / cls.rating_count
         )
+        # SQL darajasida ham 10.0 dan oshmasligini kafolatlaymiz
+        return case(
+            (calculated_avg > 10.0, 10.0),
+            else_=calculated_avg
+        )
+
+    # 🔒 BAZA DARAJASIDA XAVFSIZLIK:
+    # Kimdir tasodifan xato kod yozib, reytingni buzib yubormasligi uchun cheklov
+    __table_args__ = (
+        CheckConstraint('rating_count >= 0', name='check_rating_count_positive'),
+    )
 
 #========================================================================#
 class Episode(Base):
@@ -262,6 +340,73 @@ class Episode(Base):
         UniqueConstraint("anime_id", "episode"),
     )
 
+#========================================================================#
+class Comment(Base):
+    __tablename__ = "anime_comments"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True
+    )
+
+    # Izoh qaysi animega tegishli ekanligi
+    anime_id: Mapped[int] = mapped_column(
+        ForeignKey("anime_list.anime_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
+    # Izohni qaysi foydalanuvchi yozgani
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
+    # Izoh matni
+    text: Mapped[str] = mapped_column(
+        Text,
+        nullable=False
+    )
+
+    # 🌟 PRO REPLIES TIZIMI (Self-referencing Foreign Key)
+    # Agar bu ustun NULL bo'lsa - bu asosiy izoh. 
+    # Agar ichida boshqa comment_id bo'lsa - bu o'sha izohga yozilgan JAVOB (Reply) hisoblanadi.
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("anime_comments.id", ondelete="CASCADE"),
+        index=True,
+        nullable=True
+    )
+
+    # Izoh yozilgan vaqt
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True
+    )
+
+    # Munosabatlar (Relationships)
+    anime: Mapped["Anime"] = relationship(
+        back_populates="comments",
+        lazy="selectin"
+    )
+
+    # Bitta izohga yozilgan barcha javoblarni (replies) daraxtsimon yuklash
+    replies: Mapped[list["Comment"]] = relationship(
+        "Comment",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        remote_side=[id], # Self-referential bog'liqlikni bildiradi
+        lazy="selectin"
+    )
+
+    parent: Mapped[Optional["Comment"]] = relationship(
+        "Comment",
+        back_populates="replies",
+        remote_side=[id],
+        lazy="selectin"
+    )
 #========================================================================#
 class Channel(Base):
     __tablename__ = "channels"
@@ -298,6 +443,9 @@ class Channel(Base):
     __table_args__ = (
         Index("idx_channel_active", is_active),  # <-- Tuzatildi: string olib tashlandi
     )
+
+
+
 
 #========================================================================#
 class OutboxEvent(Base):
@@ -340,7 +488,7 @@ class OutboxEvent(Base):
 
 #========================================================================#
 MODELS_TO_WATCH = {
-    "DBUser", "Anime", "Episode", "Genre", "Channel",
+    "DBUser", "Anime", "Episode", "Genre", "Channel, Dubber, Comment",
 }
 
 WATCHED_EVENTS = (
