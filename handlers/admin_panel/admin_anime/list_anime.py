@@ -102,6 +102,20 @@ async def view_anime_details(callback: CallbackQuery, session: Any):
     except Exception as e:
         logger.error(f"❌ Janrlarni yuklashda xato: {e}")
 
+    dubbers_str = "Mavjud emas"
+    try:
+        dubber_ids = anime.get("dubbers", [])
+        if dubber_ids:
+            from database.models import Dubber
+            from sqlalchemy import select
+            res = await session.execute(select(Dubber).where(Dubber.id.in_(dubber_ids)))
+            dubber_names = [d.name for d in res.scalars().all()]
+            if dubber_names:
+                dubbers_str = ", ".join(dubber_names)
+    except Exception as e:
+        logger.error(f"❌ Dubberlarni yuklashda xato: {e}")
+
+
     # 4. Siz aytgan daxshat ramkali UX dizayn
     caption = (
         f"╔══════════════════╗\n"
@@ -113,6 +127,7 @@ async def view_anime_details(callback: CallbackQuery, session: Any):
         f"├ 📅 Yil: <b>{year}</b>\n"
         f"├ ▶️ Qism: <b>{episodes_count}</b> \n"
         f"├ 🌐 Til: <b>{languages_str}</b>\n"
+        f"├ 🎙 Dubber: <b>{dubbers_str}</b>\n"
         f"╚══════════════════╝\n"
         f"╔══════════════════╗\n"
         f"  🔮 Janrlar: <i>{genres_str}</i>\n"
