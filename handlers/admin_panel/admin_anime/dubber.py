@@ -1,3 +1,5 @@
+
+
 from aiogram import Router, F, html
 from typing import Any
 from aiogram.filters import Command
@@ -5,10 +7,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from services.anime_service import AnimeService
-
+from config import config
 router = Router()
-
-# FSM States guruhini shakllantiramiz
+CREATOR_ID = config.CREATOR_ID 
 class TempDubberStates(StatesGroup):
     waiting_dubbers = State()  # Dubberlar matnini kutish
     confirm_save = State()     # Tasdiqlash oynasi
@@ -17,6 +18,11 @@ class TempDubberStates(StatesGroup):
 # ================= 1. /dubber BUYRUG‘I ORQALI BOSHLASH =================
 @router.message(Command("dubber", "dublyajchi"))
 async def start_quick_dubbers(message: Message, state: FSMContext):
+    if message.from_user.id != CREATOR_ID:
+        await message.answer("❌ Sizda bu buyruqni ishlatish huquqi yo‘q.")
+        return
+
+    # else shart emas, to'g'ridan-to'g'ri davom etamiz
     await state.set_state(TempDubberStates.waiting_dubbers)
     
     text = (
@@ -24,14 +30,16 @@ async def start_quick_dubbers(message: Message, state: FSMContext):
         f"Iltimos, bazaga qo‘shmoqchi bo‘lgan dubberlarni (ovoz beruvchilarni) {html.underline('vergul')} orqali ajratib yuboring.\n\n"
         f"📌 Masalan: {html.code('Amonov, Shaxzod, Anvar, Real_Dubber')}"
     )
-    
+
     await message.answer(
         text=text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_dubber_add")]
+            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_dubber_add", style="danger")]
         ]),
         parse_mode="HTML"
     )
+    
+    
 
 
 # ================= 2. TEXT QABUL QILISH VA FORMATLASH =================
@@ -63,10 +71,10 @@ async def process_raw_dubbers(message: Message, state: FSMContext):
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📥 Bazaga saqlash", callback_data="db_save_quick_dubbers")
+            InlineKeyboardButton(text="📥 Bazaga saqlash", callback_data="db_save_quick_dubbers", style="success")
         ],
         [
-            InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_dubber_add")
+            InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_dubber_add", style="danger")
         ]
     ])
     
@@ -83,6 +91,7 @@ async def save_dubbers_to_db(callback: CallbackQuery, state: FSMContext, session
     await callback.answer("⏳ Bazaga yozilmoqda...")
     
     try:
+        
         # 🎙 Boshqa ishlayotgan metodlaringiz kabi serviceni qo'lda yaratib olamiz:
         anime_service = AnimeService(session)
         

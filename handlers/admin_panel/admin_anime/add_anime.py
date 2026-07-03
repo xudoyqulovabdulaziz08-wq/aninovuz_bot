@@ -29,6 +29,7 @@ class AddAnimeStates(StatesGroup):
     poster = State()       # 1. Birinchi poster (Rasm/Video)
     info_line = State()    # 2. Nomi | Yili | Tili (Bitta qatorda)
     genres = State()       # 3. Janrlar (Paginatsiya + Multi-select + style="success")
+    dubber = State()      # 4. Dubber 
     description = State()  # 4. Tasnif (Description)
     confirm_save = State() # 5. Bazaga saqlashni tasdiqlash
 

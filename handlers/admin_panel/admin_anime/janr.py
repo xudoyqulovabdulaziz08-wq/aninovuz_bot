@@ -5,9 +5,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup, Any
 from sqlalchemy import select
 from database.models import Genre
-
+from config import config
 router = Router(name="admin_temp_genres")
-
+CREATOR_ID = config.CREATOR_ID 
 class TempGenreStates(StatesGroup):
     waiting_genres = State()  # Janrlarni matn sifatida kutish holati
     confirm_save = State()    # Tasdiqlash holati
@@ -16,12 +16,16 @@ class TempGenreStates(StatesGroup):
 # ================= 1. /genre BUYRUG‘I ORQALI BOSHLASH =================
 @router.message(Command("genre", "janr"))
 async def start_quick_genres(message: Message, state: FSMContext):
+    if message.from_user.id != CREATOR_ID:
+        await message.answer("❌ Sizda bu buyruqni ishlatish huquqi yo‘q.")
+        return
+
     await state.set_state(TempGenreStates.waiting_genres)
     
     text = (
         f"📁 {html.bold('Vaqtinchalik tezkor janr qo‘shish bo‘limi')}\n\n"
         f"Iltimos, bazaga qo‘shmoqchi bo‘lgan janrlaringizni {html.underline('vergul')} orqali ajratib yuboring.\n\n"
-        f"📌 Masalan: {html.code('Komediyya, Boevik, Sarguzasht, Fantastika')}"
+        f"📌 Masalan: {html.code('Komediya, Boevik, Sarguzasht, Fantastika')}"
     )
     
     await message.answer(

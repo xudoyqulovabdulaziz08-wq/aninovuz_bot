@@ -2,7 +2,7 @@ import logging
 from typing import Any, Optional, Dict, List
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
-from database.models import Anime, Episode, Genre
+from database.models import Anime, Episode, Genre, Dubber  
 
 logger = logging.getLogger("AnimeRepository")
 
@@ -29,7 +29,11 @@ class AnimeRepository:
         stmt = (
             select(Anime)
             .where(Anime.anime_id == anime_id)
-            .options(selectinload(Anime.genres), selectinload(Anime.episodes))
+            .options(
+                selectinload(Anime.genres),  
+                selectinload(Anime.episodes),
+                selectinload(Anime.dubbers)  # 🎙 1. Dubberlarni ham yuklab olishni qo'shamiz
+            )
         )
 
         result = await session.execute(stmt)
@@ -41,6 +45,10 @@ class AnimeRepository:
         # Ustunlarni dict qilamiz va munosabatlarni qo'lda xavfsiz qo'shamiz
         data = anime.to_dict()
         data["genres"] = [g.id for g in anime.genres] if hasattr(anime, "genres") else []
+        
+        # 🎙 2. Yuklangan dubberlarning ID-larini ro'yxat qilib qo'shamiz
+        data["dubbers"] = [d.id for d in anime.dubbers] if hasattr(anime, "dubbers") else []
+        
         data["episodes"] = [
             {"id": ep.id, "episode": ep.episode, "file_id": ep.file_id} 
             for ep in anime.episodes
@@ -77,7 +85,7 @@ class AnimeRepository:
 
         stmt = (
             select(Anime)
-            .options(selectinload(Anime.genres), selectinload(Anime.episodes))
+            .options(selectinload(Anime.genres), selectinload(Anime.episodes), selectinload(Anime.dubbers))
             .order_by(desc(Anime.anime_id))
         )
 
@@ -87,6 +95,7 @@ class AnimeRepository:
         for anime in result.scalars().all():
             data = anime.to_dict()
             data["genres"] = [g.id for g in anime.genres] if hasattr(anime, "genres") else []
+            data["dubbers"] = [d.id for d in anime.dubbers] if hasattr(anime, "dubbers") else []
             data["episodes"] = [
                 {"id": ep.id, "episode": ep.episode, "file_id": ep.file_id} 
                 for ep in anime.episodes
@@ -104,9 +113,13 @@ class AnimeRepository:
         year: int,
         is_completed: bool,
         genres: List[Any],
+        dubbers: List[Any],
         description: str,
         languages: list
     ) -> Dict:
+        # 💡 CIRCULAR IMPORT OLDIRI OLISH UCHUN: Kechikib import qilamiz
+        from database.models import Dubber
+
         session = await AnimeRepository._prepare_session(session)
 
         genre_objs = []
@@ -115,6 +128,12 @@ class AnimeRepository:
             res = await session.execute(stmt)
             genre_objs = list(res.scalars().all())
 
+        dubber_objs = []
+        if dubbers:
+            stmt = select(Dubber).where(Dubber.id.in_(dubbers))
+            res = await session.execute(stmt)
+            dubber_objs = list(res.scalars().all())
+
         anime = Anime(
             title=title,
             poster_id=poster_id,
@@ -122,15 +141,17 @@ class AnimeRepository:
             is_completed=is_completed,
             description=description,
             languages=languages,
-            genres=genre_objs
+            genres=genre_objs,
+            dubbers=dubber_objs
         )
 
         session.add(anime)
-        await session.flush() 
+        await session.flush()  # ID bazadan darhol olinishi uchun
         
         # Ustunlarni dict qilamiz va munosabatlarni qo'lda xavfsiz qo'shamiz
         data = anime.to_dict()
         data["genres"] = [g.id for g in anime.genres] if hasattr(anime, "genres") else []
+        data["dubbers"] = [d.id for d in anime.dubbers] if hasattr(anime, "dubbers") else []
         data["episodes"] = []  # Yangi yaratilganda epizodlar bo'lmaydi
         
         return data
@@ -240,7 +261,48 @@ class AnimeRepository:
             
         return anime_list
     
+    @staticmethod
+    async def get_by_dubbers(session: Any, dubber_ids: List[int]) -> List[Dict]:
+        """Tanlangan barcha dubberlar ishtirok etgan animelarni bazadan eng tezkor usulda filtrlab beradi."""
+        # Many-to-Many o'rtadagi jadval va modellarni kechikib import qilamiz
+        from database.models import anime_dubbers  # O'rtadagi jadval nomi (models.py dagi nomga qarab o'zgartiring)
+        from sqlalchemy import func
 
+        if not dubber_ids:
+            return []
+
+        session = await AnimeRepository._prepare_session(session)
+
+        # SQL mantiqi: Tanlangan dubberlar ichidan qidir, anime bo'yicha guruhla
+        # va faqat guruhdagi dubberlar soni biz yuborgan dubberlar soniga teng bo'lganlarini ol!
+        stmt = (
+            select(Anime)
+            .join(anime_dubbers)
+            .where(anime_dubbers.c.dubber_id.in_(dubber_ids))
+            .group_by(Anime.anime_id)
+            .having(func.count(anime_dubbers.c.dubber_id) == len(dubber_ids))
+            .options(
+                selectinload(Anime.genres), 
+                selectinload(Anime.episodes),
+                selectinload(Anime.dubbers)  # 🎙 Dubberlarni ham yuklab olamiz
+            )
+            .order_by(desc(Anime.anime_id))
+        )
+
+        result = await session.execute(stmt)
+        anime_list = []
+        
+        for anime in result.scalars().all():
+            data = anime.to_dict()
+            data["genres"] = [g.id for g in anime.genres] if hasattr(anime, "genres") else []
+            data["dubbers"] = [d.id for d in anime.dubbers] if hasattr(anime, "dubbers") else [] # 🎙 Dubber ID ro'yxati
+            data["episodes"] = [
+                {"id": ep.id, "episode": ep.episode, "file_id": ep.file_id} 
+                for ep in anime.episodes
+            ] if hasattr(anime, "episodes") else []
+            anime_list.append(data)
+            
+        return anime_list
     # ================= UNIVERSAL UPDATE ANIME =================
     @staticmethod
     async def update(session: Any, anime_id: int, update_data: Dict[str, Any]) -> bool:
@@ -293,6 +355,32 @@ class AnimeRepository:
             
         return True
     
+    @staticmethod
+    async def update_anime_dubbers(session: Any, anime_id: int, dubber_ids: list[int]) -> bool:
+        """🎙 Anime dubberlarini Many-to-Many munosabati orqali xavfsiz yangilash"""
+        from sqlalchemy.orm import selectinload
+        from database.models import Dubber
+        
+        session = await AnimeRepository._prepare_session(session)
+        
+        # Animeni dubberlari bilan birga yuklaymiz
+        stmt = select(Anime).where(Anime.anime_id == anime_id).options(selectinload(Anime.dubbers))
+        result = await session.execute(stmt)
+        anime = result.scalar_one_or_none()
+        
+        if not anime:
+            return False
+            
+        if dubber_ids:
+            # Yangi tanlangan dubberlarni bazadan qidirib topamiz
+            dubber_stmt = select(Dubber).where(Dubber.id.in_(dubber_ids))
+            dubber_result = await session.execute(dubber_stmt)
+            new_dubbers = dubber_result.scalars().all()
+            anime.dubbers = list(new_dubbers)
+        else:
+            anime.dubbers = []  # Agar hamma dubber olib tashlansa
+            
+        return True
 
     # ================= DUBBER METHODS =================
     @staticmethod
@@ -314,4 +402,7 @@ class AnimeRepository:
         
         new_dubber = Dubber(name=name)
         session.add(new_dubber)
+        
+        # 💡 TAVSIYA: Obyektga bazadan darhol ID biriktirilishi uchun flush qilamiz
+        await session.flush() 
         return new_dubber

@@ -88,7 +88,7 @@ class AnimeService:
         return data
 
     # ==================================================
-    # ➕ CREATE ANIME (TRANSACTION SAFE)
+    # ➕ CREATE ANIME (TRANSACTION SAFE & CACHE-AWARE)
     # ==================================================
     async def create_anime(
         self,
@@ -97,10 +97,12 @@ class AnimeService:
         year: int,
         is_completed: bool,
         genres: List[int],
+        dubbers: List[int],  # 🎙 Yangi: Dubber ID ro'yxati argument sifatida qo'shildi
         description: str,
         languages: list
     ) -> Dict:
         try:
+            # Repozitoriyga dubbers ro'yxatini ham yuboramiz
             anime = await self.repo.create(
                 self.session,
                 title,
@@ -108,6 +110,7 @@ class AnimeService:
                 year,
                 is_completed,
                 genres,
+                dubbers,  # 🎙 Repozitoriy darajasiga uzatiladi
                 description,
                 languages
             )
@@ -115,15 +118,19 @@ class AnimeService:
             await self.session.commit()
             anime_id = anime["anime_id"]
 
+            # Kesh operatsiyalari
             await self.cache.set("anime", anime_id, anime, ttl=3600)
             await self.cache.invalidate("anime", "all", broadcast=True)
             await self.cache.invalidate("search_map", "all", broadcast=True)
+            
+            # 🎙 O'zgarish bo'lgani uchun dubber qidiruv keshi ham majburiy tozalanadi
+            await self.cache.invalidate("dubber", "all", broadcast=True)
 
-            logger.info(f"✅ Anime created + cached: {anime_id}")
+            logger.info(f"✅ Anime created + cached with dubbers: {anime_id}")
             return anime
 
         except Exception as e:
-            # 💡 SAFE ROLLBACK: AttributeError (NoneType) xavfini butunlay yo'q qilamiz
+            # 💡 SAFE ROLLBACK: AttributeError (NoneType) xavfi yo'q qilingan holatda
             if self.session and hasattr(self.session, "rollback"):
                 await self.session.rollback()
             logger.error(f"❌ Failed to create anime: {e}")
@@ -263,7 +270,14 @@ class AnimeService:
         return await self.repo.get_by_genres(self.session, genre_ids)
     
 
-
+    # ==================================================
+    # 🔎 SEARCH BY DUBBERS MULTI (OPTIMIZED DB-LEVEL)
+    # ==================================================
+    async def search_by_dubbers(self, dubber_ids: List[int]) -> List[Dict]:
+        """Tanlangan barcha dubberlarga mos keluvchi animelarni bazadan eng tezkor usulda filtrlab beradi."""
+        if not dubber_ids:
+            return []
+        return await self.repo.get_by_dubbers(self.session, dubber_ids)
 
     # ==================================================
     # 📹 GET ANIME EPISODES CACHE (CACHE-FIRST)
@@ -315,7 +329,30 @@ class AnimeService:
                 await self.session.rollback()
             return False
 
-
+    async def update_dubbers(self, anime_id: int, dubber_ids: list[int]) -> bool:
+        """🎙 Business Logic: Dubberlarni yangilash, commit qilish va keshni invalidatsiya qilish"""
+        if hasattr(self.session, "_ensure_session"):
+            await self.session._ensure_session()
+            
+        try:
+            success = await self.repo.update_anime_dubbers(self.session, anime_id, dubber_ids)
+            if not success:
+                return False
+                
+            if hasattr(self.session, "commit"):
+                await self.session.commit()
+                
+            # 🔥 Ushbu animening va umumiy ro'yxatning keshini majburiy tozalaymiz
+            await self.cache.invalidate("anime", anime_id)
+            await self.cache.invalidate("anime", "all", broadcast=True)
+            logger.info(f"✅ Anime ID={anime_id} dubberlari yangilandi va kesh tozalandi.")
+            return True
+            
+        except Exception as e:
+            logger.error(f"🚨 Dubberlarni yangilashda service xatosi: {e}")
+            if hasattr(self.session, "rollback"):
+                await self.session.rollback()
+            return False
     
     # ==================================================
     # 🎙 QUICK DUBBERS ADD (TRANSACTION-SAFE & CACHE-AWARE)
