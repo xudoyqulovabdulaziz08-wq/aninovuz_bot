@@ -60,6 +60,19 @@ async def publish_anime_to_channels_handler(callback: CallbackQuery, session: An
     except Exception as e:
         logger.error(f"❌ Janrlarni yuklashda xato: {e}")
 
+    dubbers_str = "Mavjud emas"
+    try:
+        dubber_ids = anime.get("dubbers", [])
+        if dubber_ids:
+            from database.models import Dubber
+            from sqlalchemy import select
+            res = await session.execute(select(Dubber).where(Dubber.id.in_(dubber_ids)))
+            dubber_names = [d.name for d in res.scalars().all()]
+            if dubber_names:
+                dubbers_str = ", ".join(dubber_names)
+    except Exception as e:
+        logger.error(f"❌ Dubberlarni yuklashda xato: {e}")
+
     # 4. Daxshat ramkali professional UX dizayn (Kanal uchun)
     channel_caption = (
         f"╔══════════════════╗\n"
@@ -71,6 +84,7 @@ async def publish_anime_to_channels_handler(callback: CallbackQuery, session: An
         f"├ 📅 Yil: <b>{year}</b>\n"
         f"├ ▶️ Qism: <b>{episodes_count}-qism yuklandi</b> \n"
         f"├ 🌐 Til: <b>{languages_str}</b>\n"
+        f"├ 🎙 Dubber: <b>{dubbers_str}</b>\n"
         f"╚══════════════════╝\n"
         f"╔══════════════════╗\n"
         f"  🔮 Janrlar: <i>{genres_str}</i>\n"
