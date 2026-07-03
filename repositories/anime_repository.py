@@ -56,7 +56,32 @@ class AnimeRepository:
         
         return data
     
-
+    #================= INCREMENT VIEWS =================
+    @staticmethod
+    async def increment_views(session: Any, anime_id: int) -> bool:
+        """
+        ⚡ SQL darajasida views_week va views_total ustunlarini +1 taga oshiradi.
+        Atomic update bo'lgani uchun Race Condition xavfi yo'q.
+        """
+        from sqlalchemy import update
+        from database.models import Anime
+        
+        session = await AnimeRepository._prepare_session(session)
+        
+        try:
+            stmt = (
+                update(Anime)
+                .where(Anime.anime_id == anime_id)
+                .values(
+                    views_week=Anime.views_week + 1,
+                    views_total=Anime.views_total + 1
+                )
+            )
+            await session.execute(stmt)
+            return True
+        except Exception as e:
+            logger.error(f"❌ AnimeRepository.increment_views da xato: {e}")
+            return False
     # ================= GET EPISODES BY ANIME ID =================
     @staticmethod
     async def get_episodes_by_anime_id(session: Any, anime_id: int) -> List[Dict]:

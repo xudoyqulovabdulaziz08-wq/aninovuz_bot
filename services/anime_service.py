@@ -395,3 +395,34 @@ class AnimeService:
             logger.error(f"❌ Service Layer Error while adding dubbers: {e}")
             raise e
     
+    
+    
+    
+    async def track_anime_view(self, anime_id: int) -> bool:
+        """
+        🚀 Animeni ko'rilishlar sonini oshiradi, tranzaksiyani commit qiladi
+        va keshni tozalaydi (invalidate), shunda keyingi safar yangi statistika yuklanadi.
+        """
+        if hasattr(self.session, "_ensure_session"):
+            await self.session._ensure_session()
+            
+        try:
+            # 1. Repozitoriy orqali bazada +1 qilamiz
+            success = await self.repo.increment_views(self.session, anime_id)
+            
+            if success:
+                # 2. Tranzaksiyani bazaga saqlaymiz (Commit)
+                if hasattr(self.session, "commit"):
+                    await self.session.commit()
+                
+                # 3. 🔥 KESHNI INVALIdATE QILAMIZ: Eski kesh o'chib, yangi ko'rishlar soni keshga o'tiradi
+                await self.cache.invalidate("anime", anime_id)
+                logger.info(f"📊 COUNTER UPDATED & CACHE INVALIDATED: anime_id={anime_id}")
+                return True
+                
+            return False
+        except Exception as e:
+            logger.error(f"❌ AnimeService.track_anime_view da xato: {e}")
+            if hasattr(self.session, "rollback"):
+                await self.session.rollback()
+            return False

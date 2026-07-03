@@ -30,13 +30,23 @@ async def send_anime_card(message: Message, anime: dict, session: Any) -> bool:
     languages = anime.get("languages", [])
     languages_str = ", ".join(languages) if languages else "Mavjud emas"
 
+    # 🔥 YANGI: KARTA OCHILGANDA KO'RILIShLAR SONINI +1 QILISh MANTIQLARI
+    if anime_id:
+        try:
+            from services.anime_service import AnimeService
+            view_service = AnimeService(session=session)
+            # Orqa fonda hisoblagichni oshiramiz va keshni yangilaymiz
+            await view_service.track_anime_view(anime_id)
+        except Exception as view_err:
+            logger.error(f"❌ Ko'rilishlar sonini oshirishda xato yuz berdi: {view_err}")
+
     # 🔥 CALLBACK VA ODDIY MESSAGE ID'SINI SUG'URTALASH
-    # Agar xabar botdan kelgan bo'lsa (callback holati), chat_id shaxsiy foydalanuvchi IDsi bo'ladi.
     actual_user_id = message.from_user.id if message.from_user and not message.from_user.is_bot else message.chat.id
 
     # 🛡️ VIP/Admin Dynamic statusni tekshirish qatlami
     user_service = UserService(session=session)
     user_data = await user_service.get_user(actual_user_id)
+    
     
     # 👑 Global Creator ID tekshiruvini aniq va xavfsiz holatga keltiramiz
     try:
@@ -68,6 +78,19 @@ async def send_anime_card(message: Message, anime: dict, session: Any) -> bool:
     except Exception as genre_err:
         logger.error(f"❌ Janrlarni yuklashda xato: {genre_err}")
 
+    # Dubberlarni yuklash
+    dubbers_str = "Mavjud emas"
+    try:
+        dubber_ids = anime.get("dubbers", [])
+        if dubber_ids:
+            from database.models import Dubber
+            res = await session.execute(select(Dubber).where(Dubber.id.in_(dubber_ids)))
+            dubber_names = [d.name for d in res.scalars().all()]
+            if dubber_names:
+                dubbers_str = ", ".join(dubber_names)
+    except Exception as dubber_err:
+        logger.error(f"❌ Dubberlarni yuklashda xato: {dubber_err}")
+
     # Siz taqdim etgan UX dizayn qolipi (UMUMAN O'ZGARTIRILMADI)
     caption = (
         f"╔══════════════════╗\n"
@@ -79,6 +102,7 @@ async def send_anime_card(message: Message, anime: dict, session: Any) -> bool:
         f"├ 📅 Yil: <b>{year}</b>\n"
         f"├ ▶️ Qism: <b>{episodes_count}</b> \n"
         f"├ 🌐 Til: <b>{languages_str}</b>\n"
+        f"├ 🎙 Dubber: <b>{dubbers_str}</b>\n"
         f"╚══════════════════╝\n"
         f"╔══════════════════╗\n"
         f" 🔮 Janrlar: <i>{genres_str}</i>\n"
