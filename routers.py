@@ -8,7 +8,8 @@ from handlers import(
     buy_vip,
     help,
     admin_menu,
-    creator_menu
+    creator_menu,
+    kabinet
 )
 from  handlers.creator_panel.Baza_control import (
     creator_db
@@ -97,6 +98,7 @@ main_router.include_routers(
     anime_card.router,
     admin_advert_send.router,
 
+    kabinet.router,
     qollanma.router,
     reklama.router,
     buy_vip.router,
