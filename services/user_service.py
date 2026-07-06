@@ -397,27 +397,45 @@ class UserService:
             raise e
         
     # ==================================================
-    # 🔑 REFRESH WEB PASSWORD HASH (CACHE SYNC)
+    # 🔑 GENERATE WEB AUTH CODE (CACHE-AWARE & SAFE)
     # ==================================================
-    async def sync_web_password(self, user_id: int) -> bool:
+    async def generate_web_auth_code(self, user_id: int) -> Optional[str]:
         """
-        Backend parolni yangilaganidan so'ng, botning L1 va L2 
-        keshlarini yangi ma'lumotga moslab tozalaydi.
+        🤖 Saytga login qilish uchun vaqtinchalik parol yaratadi.
+        Tranzaksiyaviy xavfsiz va keshni darhol yangilaydi (Invalidation).
         """
         try:
-            # 1. L2 (Valkey/CacheManager) keshini o'chiramiz
+            # 1. Repository orqali bazada vaqtinchalik kod va muddatini yangilaymiz
+            code = await self.repo.generate_auth_code(self.session, user_id)
+            if not code:
+                await self.session.rollback()
+                return None
+
+            # 2. O'zgarishlarni bazaga saqlaymiz
+            await self.session.commit()
+
+            # 3. 🧹 KESHNI TOZALASH
+            # Foydalanuvchining yangi paroli sayt (backend) tomonidan ham darhol 
+            # bazadan to'g'ri o'qilishi uchun keshni butunlay invalidatsiya qilamiz.
             await self.cache.invalidate("users", str(user_id), broadcast=True)
             
-            # 2. Global orchestrator state ichidagi L1 in-memory keshini tozalaymiz
-            # middlewere.py dagi L1Cache ob'ekti state.l1_cache ichida yotadi
-            if hasattr(state, 'l1_cache') and state.l1_cache is not None:
-                async with state.l1_cache._lock:
-                    # L1 kesh ichidagi ichki dict ob'ektidan o'chiramiz
-                    if user_id in state.l1_cache._cache:
-                        state.l1_cache._cache.pop(user_id, None)
-                        logger.debug(f"🧹 L1 cache cleared safely for user_id={user_id}")
-            
-            return True
+            logger.info(f"🔑 Auth code generated for user {user_id}.")
+            return code
+
         except Exception as e:
-            logger.error(f"❌ Keshni tozalashda xatolik: {e}")
-            return False
+            await self.session.rollback()
+            logger.error(f"❌ Failed to generate auth code for user {user_id}: {e}")
+            raise e
+
+    # ==================================================
+    # 🔄 RESET/REFRESH AUTH CODE
+    # ==================================================
+    async def refresh_web_auth_code(self, user_id: int) -> Optional[str]:
+        """
+        🔒 Agar foydalanuvchi parolini kimdir bilib qolgan bo'lsa yoki muddati o'tgan bo'lsa,
+        eski parolni bekor qilib, xavfsiz ravishda qayta yangilab beradi.
+        """
+        # Xavfsizlik mantiqi bo'yicha generate_web_auth_code bilan bir xil ishlaydi,
+        # lekin semantik jihatdan qayta tiklash (reset) uchun alohida xizmat qiladi.
+        logger.warning(f"🔒 Security trigger: Resetting auth code for user {user_id}...")
+        return await self.generate_web_auth_code(user_id)

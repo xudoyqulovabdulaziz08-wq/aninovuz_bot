@@ -91,6 +91,18 @@ class DBUser(Base):
         String(255),
         nullable=True
     )
+
+    # 🤖 BOT LOGINI UCHUN YANGI USTUNLAR:
+    temporary_code: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        index=True # Qidiruv tezlashishi uchun index qo'shildi
+    )
+
+    code_expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

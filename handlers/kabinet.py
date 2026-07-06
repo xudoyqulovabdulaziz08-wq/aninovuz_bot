@@ -1,94 +1,92 @@
 import logging
-import aiohttp
 import asyncio
-from typing import Any
-from aiogram import Router, html, types, F
-from config import config
+from aiogram import Router, F, html
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from services.user_service import UserService  # O'zingizning service yo'lingiz
 
-from services.user_service import UserService
-
-
-
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
-
-logger = logging.getLogger("kabinet_router")
+logger = logging.getLogger("CabinetHandler")
 router = Router()
 
-
-
-
-
-# 3️⃣ 🖥 SHAXSIY KABINET TUGMASI BOSILGANDA
+# ==================================================
+# 🖥 SHAXSIY KABINET TUGMASI BOSILGANDA (Yoki Yangilanganda)
+# ==================================================
 @router.callback_query(F.data == "open_cabinet")
+@router.callback_query(F.data.startswith("refresh_web_code:"))
 async def open_cabinet_handler(callback: CallbackQuery, user_service: UserService):
     user_id = callback.from_user.id
+    current_data = callback.data
     
-    # Yuklanish belgisini ko'rsatamiz
-    await callback.answer("⏳ Kabinet yuklanmoqda...")
-    
-    # 🌐 Haqiqiy Node.js Backend URL (Render yoki ishlab turgan server manzili bo'lishi shart)
-    # Mahalliy localhost:3000 Render serverida ishlamaydi! 
-    # Eng yaxshisi config.BACKEND_URL orqali ulash
-    BACKEND_URL = getattr(config, "BACKEND_URL", "https://sizning-backend-loyiha.onrender.com") + "/api/auth/bot/generate-password"
-    
-    password = None
-    
-    # Backend bilan xavfsiz bog'lanish (Timeout bilan)
+    # Yuklanish holati anomal ko'rinmasligi uchun chiroyli eslatma
+    await callback.answer("⏳ Shaxsiy kabinet yuklanmoqda...")
+
+    # 1. Tranzaksiyaviy va keshga mos biznes mantiqi orqali kodni generatsiya qilamiz
     try:
-        async with aiohttp.ClientSession() as session:
-            async with asyncio.timeout(4.0):  # 4 soniyadan ko'p kuttirmaymiz
-                payload = {"userId": user_id}
-                async with session.post(BACKEND_URL, json=payload) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        password = result.get("password")
-                    else:
-                        logger.warning(f"⚠️ Backend noto'g'ri status qaytardi: {response.status}")
-    except Exception as api_error:
-        # Xatoni faqat logga yozamiz, foydalanuvchiga ko'rsatmaymiz
-        logger.error(f"❌ Backend API bilan ulanishda xatolik: {api_error}")
+        if current_data.startswith("refresh_web_code:"):
+            # Agar foydalanuvchi "Parolni yangilash" tugmasini bosgan bo'lsa
+            password = await user_service.refresh_web_auth_code(user_id)
+            alert_text = "🔄 Yangi xavfsiz parol yaratildi va bazada yangilandi!"
+        else:
+            # Oddiy kabinetga kirish tugmasi bosilganda
+            password = await user_service.generate_web_auth_code(user_id)
+            alert_text = None
+
+    except Exception as err:
+        logger.error(f"❌ Shaxsiy kabinet mantiqida xatolik (user_id={user_id}): {err}")
         password = None
 
-    # 🟢 Agar backend parolni bermasa (API o'chiq bo'lsa yoki xato bersa) foydalanuvchiga chiroyli xabar beramiz
+    # 2. Agar bazadan yoki servisdan kod kelmasa (Favqulodda holat uchun xavfsizlik)
     if not password:
         await callback.message.answer(
             "❌ Kechirasiz, ayni vaqtda shaxsiy kabinet tizimi vaqtincha ishlamayapti.\n"
-            "Texnik ishlar olib borilayotgan bo'lishi mumkin. Birozdan so'ng qayta urinib ko'ring."
+            "Tizimda texnik ishlar olib borilayotgan bo'lishi mumkin. Birozdan so'ng qayta urinib ko'ring."
         )
         return
 
-    # 🔥 Backend parolni yaratgach, bot keshini (L1 va L2) sinxronizatsiya qilamiz
-    try:
-        await user_service.sync_web_password(user_id)
-    except Exception as sync_err:
-        logger.error(f"❌ Keshni sinxronlashda xatolik: {sync_err}")
-
-    # Foydalanuvchiga premium, toza interfeysda ma'lumotlarini taqdim etamiz
+    # 3. Interfeys matni (Premium, toza vizual uslubda)
     cabinet_text = (
         f"🖥 {html.bold('SHAXSIY KABINET')}\n\n"
-        f"Aninov.uz saytiga istalgan qurilmadan (telefon, kompyuter yoki televizor) "
-        f"kirish uchun quyidagi shaxsiy ma'lumotlaringizdan foydalaning:\n\n"
+        f"Aninov.uz saytiga istalgan qurilmadan (telefon, kompyuter yoki smart TV) "
+        f"kirish uchun quyidagi bir martalik maxsus ma'lumotlardan foydalaning:\n\n"
         f"🆔 {html.bold('Telegram ID:')} <code>{user_id}</code>\n"
         f"🔑 {html.bold('Maxsus Parol:')} <code>{password}</code>\n\n"
-        f"⚠️ {html.italic('Eslatma: Parol va ID raqamingizni nusxalash uchun ustiga bir marta bosing. ')}"
-        f"{html.italic('Ushbu maxfiy parolni hech kimga bermang!')}"
+        f"⏳ {html.italic('Amal qilish muddati: 15 daqiqa.')}\n"
+        f"⚠️ {html.italic('Eslatma: ID va Parol ustiga bir marta bossangiz, avtomatik nusxalanadi.')}\n\n"
+        f"🔒 {html.italic('Agarda parolingizni begona shaxs bilib qolgan deb o\'ylasangiz, quyidagi tugma orqali uni darhol yangilashingiz mumkin.')}"
     )
 
+    # 4. Inline tugmalar (Faqat bitta joyda chiroyli joylashuv)
     cabinet_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Bosh menyuga qaytish", callback_data="back_to_start")]
+            [
+                InlineKeyboardButton(
+                    text="🔄 Parolni yangilash", 
+                    callback_data=f"refresh_web_code:{user_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Bosh menyuga qaytish", 
+                    callback_data="back_to_start"
+                )
+            ]
         ]
     )
 
-    # Start menyuni media tahrirlash (Edit) orqali chiroyli kabinet oynasiga aylantiramiz
+    # 5. Media Edit (Rasm caption-ini tahrirlash) orqali oynani yangilash
     try:
         await callback.message.edit_caption(
             caption=cabinet_text,
             reply_markup=cabinet_keyboard,
             parse_mode="HTML"
         )
-    except Exception:
-        # Agar rasm captionini tahrirlashda muammo bo'lsa, yangi xabar sifatida chiqaradi
+        
+        # Agar parol yangilangan bo'lsa, foydalanuvchiga tepadan chiroyli bildirishnoma (toast) chiqaramiz
+        if alert_text:
+            await callback.answer(alert_text, show_alert=True)
+            
+    except Exception as edit_error:
+        logger.debug(f"Media caption edit dynamic fallback triggered: {edit_error}")
+        # Agar qandaydir sabab bilan rasm captionini tahrirlab bo'lmasa, yangi xabar ko'rinishida yuboradi
         await callback.message.answer(
             text=cabinet_text,
             reply_markup=cabinet_keyboard,

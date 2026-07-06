@@ -248,3 +248,40 @@ class UserRepository:
         return result.rowcount > 0
     
     
+
+    @staticmethod
+    async def generate_auth_code(session: Any, user_id: int) -> Optional[str]:
+        """
+        🤖 Saytga kirish uchun vaqtinchalik 6 xonali kod yaratadi.
+        Amal qilish muddati: 15 daqiqa.
+        """
+        import random
+        session = await UserRepository._prepare_session(session)
+
+        # 6 xonali tasodifiy son ko'rinishidagi parol (Masalan: 482915)
+        # Boshiga AN- qo'shib shakllantiramiz: AN-482915
+        random_code = f"AN-{random.randint(100000, 999999)}"
+        expire_time = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+        result = await session.execute(
+            update(DBUser)
+            .where(DBUser.user_id == user_id)
+            .values(
+                temporary_code=random_code,
+                code_expires_at=expire_time
+            )
+        )
+
+        await session.flush()
+        if result.rowcount > 0:
+            return random_code
+        return None
+
+    # ================= RESET AUTH CODE =================
+    @staticmethod
+    async def reset_auth_code(session: Any, user_id: int) -> Optional[str]:
+        """
+        🔒 Parol buzilgan yoki eskirgan bo'lsa, uni xavfsiz qayta shakllantiradi.
+        """
+        # generate_auth_code bilan bir xil mantiqda ishlaydi, eski kod ustidan yangisini yozadi
+        return await UserRepository.generate_auth_code(session, user_id)
