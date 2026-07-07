@@ -79,35 +79,49 @@ async def cmd_start(message: Message, command: CommandObject, session: Any, user
     username = message.from_user.username or "do'stim"
     user_status = user.get('status', 'user').lower()
     
-    # 🚀 KANAL TUGMASIDAN PARAMETR KELGANDA (Masalan: /start anime_15,)
+    # 🚀 KANAL TUGMASIDAN PARAMETR KELGANDA
     if command.args:
-        # 🌟 "🔍 Yuborilmoqda..." matni bilan vaqtinchalik xabarni saqlaymiz
         waiting_msg = await message.answer("🔍 Yuborilmoqda...")
-        
         clean_args = command.args.strip().rstrip(",")
-        if clean_args.startswith("anime_"):
+        
+        anime_id = None
+        
+        # Agarda saytdan faqat raqam kelsa
+        if clean_args.isdigit():
+            anime_id = int(clean_args)
+            
+        # Agarda kanaldan anime_15 ko'rinishida kelsa
+        elif clean_args.startswith("anime_"):
             try:
                 anime_id = int(clean_args.split("_")[1])
-                
+            except ValueError:
+                pass
+
+        # Agar ID muvaffaqiyatli aniqlangan bo'lsa
+        if anime_id is not None:
+            try:
                 from services.anime_service import AnimeService
                 service = AnimeService(session=session)
                 anime = await service.get_anime(anime_id)
                 
                 if anime:
-                    # 🚀 "message" o'rniga "waiting_msg" beriladi, shunda poster yuklangach u o'chib ketadi!
                     await send_anime_card(waiting_msg, anime, session)
                     return
                 else:
-                    # Anime topilmasa, vaqtinchalik xabarni o'chirib tashlaymiz
                     await waiting_msg.delete()
                     
             except Exception as ex:
                 logger.error(f"❌ Deep link ishlashida xatolik: {ex}")
-                # Xatolik yuz bersa ham vaqtinchalik xabar o'chiriladi
                 try:
                     await waiting_msg.delete()
                 except:
                     pass
+        else:
+            # Agar argument noto'g'ri formatda bo'lsa xabarni o'chirish
+            try:
+                await waiting_msg.delete()
+            except:
+                pass
 
     # Agarda oddiy start bo'lsa yoki anime topilmasa, asosiy menyuni chiqaradi
     await send_or_edit_start_menu(message, user_id, username)
