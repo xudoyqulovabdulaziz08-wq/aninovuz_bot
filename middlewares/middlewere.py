@@ -43,14 +43,14 @@ class L1Cache:
                 logger.debug(f"🧹 L1 cache evicted: user_id={removed[0]}")
 
 # Global state initsializatsiyasi
-if not hasattr(state, 'l1_cache'): state.l1_cache = L1Cache(max_size=5000)
+if getattr(state, 'user_l1_cache', None) is None:
+    state.user_l1_cache = L1Cache(max_size=5000)
 if not hasattr(state, 'db_status'): state.db_status = True
 if not hasattr(state, 'db_fail_count'): state.db_fail_count = 0
 if not hasattr(state, 'db_last_retry'): state.db_last_retry = 0.0
 if not hasattr(state, 'db_lock'): state.db_lock = asyncio.Lock()
 if not hasattr(state, 'cb_threshold'): state.cb_threshold = 5
 if not hasattr(state, 'cb_recovery_time'): state.cb_recovery_time = 30.0
-
 
 # ======================================================
 # 🔥 SAFE SESSION PROXY
@@ -135,12 +135,12 @@ class DbSessionMiddleware(BaseMiddleware):
             # 🚀 LEVEL 1: IN-MEMORY CACHE (ULTRA FAST)
             # ======================================================
             # ✅ TO'G'RI: await olib tashlandi
-            cached_l1 = await state.l1_cache.get(user_id)
+            cached_l1 = await state.user_l1_cache.get(user_id)
             if cached_l1:
                 # Username o'zgargan bo'lsa L1 ni yangilaymiz (L2 keyingi so'rovda yangilanadi)
                 if (cached_l1.get("username") or "") != (user_obj.username or ""):
                     cached_l1["username"] = user_obj.username
-                    await state.l1_cache.set(user_id, cached_l1)
+                    await state.user_l1_cache.set(user_id, cached_l1)
 
                 data["user"] = cached_l1
                 return await handler(event, data)
@@ -175,7 +175,7 @@ class DbSessionMiddleware(BaseMiddleware):
 
                 # Kelajakdagi tezkor so'rovlar uchun L1 ga yozamiz
                 # ✅ TO'G'RI: Standart OrderedDict uslubida ma'lumot yozish (await-siz)
-                state.l1_cache[user_id] = user_data
+                await state.user_l1_cache.set(user_id, user_data)
                 
                 data["user"] = copy.deepcopy(user_data)
                 
