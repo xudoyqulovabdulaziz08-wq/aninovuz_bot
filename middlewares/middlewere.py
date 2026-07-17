@@ -135,7 +135,7 @@ class DbSessionMiddleware(BaseMiddleware):
             # 🚀 LEVEL 1: IN-MEMORY CACHE (ULTRA FAST)
             # ======================================================
             # ✅ TO'G'RI: await olib tashlandi
-            cached_l1 = state.l1_cache.get(user_id)
+            cached_l1 = await state.l1_cache.get(user_id)
             if cached_l1:
                 # Username o'zgargan bo'lsa L1 ni yangilaymiz (L2 keyingi so'rovda yangilanadi)
                 if (cached_l1.get("username") or "") != (user_obj.username or ""):
