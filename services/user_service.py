@@ -293,6 +293,7 @@ class UserService:
             # marta botga yozganda kesh-first tufayli eski USER statusida qolib ketmaydi,
             # uning yangi ADMIN statusi bazadan qayta yuklanadi.
             await self.cache.invalidate("users", str(user_id), broadcast=True)
+            await state.user_l1_cache.delete(user_id)
             
             logger.info(f"👑 User {user_id} has been promoted to ADMIN successfully.")
             return True
@@ -341,6 +342,7 @@ class UserService:
 
             # 3. 🧹 KESHNI TOZALASH (L1/L2 keshlar darhol o'chadi)
             await self.cache.invalidate("users", str(user_id), broadcast=True)
+            await state.user_l1_cache.delete(user_id)
             
             logger.info(f"📉 User {user_id} has been demoted from ADMIN to USER.")
             return True
